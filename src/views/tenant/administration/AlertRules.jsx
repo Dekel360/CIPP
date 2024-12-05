@@ -20,106 +20,89 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCircleNotch, faEdit, faEye } from '@fortawesome/free-solid-svg-icons'
 import { CippContentCard, CippPage, CippPageList } from 'src/components/layout'
 import { cellBadgeFormatter, cellDateFormatter } from 'src/components/tables'
-import { CellTip } from 'src/components/tables/CellGenericFormat'
+import { CellTip, cellGenericFormatter } from 'src/components/tables/CellGenericFormat'
 import 'react-datepicker/dist/react-datepicker.css'
 import TenantListSelector from 'src/components/utilities/TenantListSelector'
-import { ModalService, TenantSelector } from 'src/components/utilities'
+import { CippCodeBlock, ModalService, TenantSelector } from 'src/components/utilities'
 import CippCodeOffCanvas from 'src/components/utilities/CippCodeOffcanvas'
+import CippTableOffcanvas from 'src/components/utilities/CippTableOffcanvas'
 import arrayMutators from 'final-form-arrays'
-
-const Offcanvas = (row, rowIndex, formatExtraData) => {
-  const [ExecuteGetRequest, getResults] = useLazyGenericGetRequestQuery()
-  const [ocVisible, setOCVisible] = useState(false)
-
-  const handleDeleteSchedule = (apiurl, message) => {
-    ModalService.confirm({
-      title: 'Confirm',
-      body: <div>{message}</div>,
-      onConfirm: () => ExecuteGetRequest({ path: apiurl }),
-      confirmLabel: 'Continue',
-      cancelLabel: 'Cancel',
-    })
-  }
-  let jsonResults
-  try {
-    jsonResults = JSON.parse(row.Results)
-  } catch (error) {
-    jsonResults = row.Results
-  }
-
-  return (
-    <>
-      <CTooltip content="View Results">
-        <CButton size="sm" color="success" variant="ghost" onClick={() => setOCVisible(true)}>
-          <FontAwesomeIcon icon={'eye'} href="" />
-        </CButton>
-      </CTooltip>
-      <CTooltip content="Delete task">
-        <CButton
-          onClick={() =>
-            handleDeleteSchedule(
-              `/api/RemoveScheduledItem?&ID=${row.RowKey}`,
-              'Do you want to delete this job?',
-            )
-          }
-          size="sm"
-          variant="ghost"
-          color="danger"
-        >
-          <FontAwesomeIcon icon={'trash'} href="" />
-        </CButton>
-      </CTooltip>
-      <CippCodeOffCanvas
-        hideButton
-        title="Results"
-        row={jsonResults}
-        state={ocVisible}
-        type="TemplateResults"
-        hideFunction={() => setOCVisible(false)}
-      />
-    </>
-  )
-}
+import countryList from 'src/data/countryList.json'
+import { TitleButton } from 'src/components/buttons'
 
 const AlertRules = () => {
+  const [ExecuteGetRequest, getResults] = useLazyGenericGetRequestQuery()
+
+  const Offcanvas = (row, rowIndex, formatExtraData) => {
+    const [ocVisible, setOCVisible] = useState(false)
+    const tenantDomain = useSelector((state) => state.app.currentTenant.defaultDomainName)
+
+    const handleDeleteSchedule = (apiurl, message) => {
+      ModalService.confirm({
+        title: 'Confirm',
+        body: <div>{message}</div>,
+        onConfirm: () => ExecuteGetRequest({ path: apiurl }),
+        confirmLabel: 'Continue',
+        cancelLabel: 'Cancel',
+      })
+    }
+    let jsonResults
+    try {
+      jsonResults = JSON.parse(row.Results)
+    } catch (error) {
+      jsonResults = row.Results
+    }
+
+    return (
+      <>
+        <CTooltip content="View Results">
+          <CButton size="sm" color="success" variant="ghost" onClick={() => setOCVisible(true)}>
+            <FontAwesomeIcon icon={'eye'} href="" />
+          </CButton>
+        </CTooltip>
+        <CTooltip content="Delete task">
+          <CButton
+            onClick={() =>
+              handleDeleteSchedule(
+                `/api/RemoveWebhookAlert?Tenantfilter=${row.Tenant}&ID=${row.RowKey}`,
+                'Do you want to delete this job?',
+              )
+            }
+            size="sm"
+            variant="ghost"
+            color="danger"
+          >
+            <FontAwesomeIcon icon={'trash'} href="" />
+          </CButton>
+        </CTooltip>
+        <CippCodeOffCanvas
+          hideButton
+          title="Results"
+          row={row}
+          state={ocVisible}
+          type="TemplateResults"
+          hideFunction={() => setOCVisible(false)}
+        />
+      </>
+    )
+  }
   const currentDate = new Date()
   const [startDate, setStartDate] = useState(currentDate)
   const tenantDomain = useSelector((state) => state.app.currentTenant.defaultDomainName)
-  const [isArr, setisArr] = useState([])
   const [refreshState, setRefreshState] = useState(false)
+  const [showPending, setShowPending] = useState(false)
   const taskName = `Scheduled Task ${currentDate.toLocaleString()}`
   const { data: availableCommands = [], isLoading: isLoadingcmd } = useGenericGetRequestQuery({
     path: 'api/ListFunctionParameters?Module=CIPPCore',
   })
   const [genericPostRequest, postResults] = useLazyGenericPostRequestQuery()
   const onSubmit = (values) => {
-    const unixTime = Math.floor(startDate.getTime() / 1000)
-    const shippedValues = {
-      TenantFilter: tenantDomain,
-      Name: values.taskName,
-      Command: values.command,
-      Parameters: values.parameters,
-      ScheduledTime: unixTime,
-      Recurrence: values.Recurrence,
-      AdditionalProperties: values.additional,
-      PostExecution: {
-        Webhook: values.webhook,
-        Email: values.email,
-        PSA: values.psa,
-      },
-    }
-    genericPostRequest({ path: '/api/AddScheduledItem', values: shippedValues }).then((res) => {
+    values['tenantfilter'] = tenantDomain
+    genericPostRequest({ path: '/api/AddAlert', values: values }).then((res) => {
       setRefreshState(res.requestId)
     })
   }
   const columns = [
-    {
-      name: 'Name',
-      selector: (row) => row['Name'],
-      sortable: true,
-      cell: (row) => CellTip(row['Name']),
-      exportSelector: 'Name',
-    },
     {
       name: 'Tenant',
       selector: (row) => row['Tenant'],
@@ -128,53 +111,18 @@ const AlertRules = () => {
       exportSelector: 'Tenant',
     },
     {
-      name: 'Task State',
-      selector: (row) => row['TaskState'],
+      name: 'If',
+      selector: (row) => row['if'],
       sortable: true,
-      cell: cellBadgeFormatter(),
-      exportSelector: 'TaskState',
+      cell: cellGenericFormatter(),
+      exportSelector: 'if',
     },
     {
-      name: 'Command',
-      selector: (row) => row['Command'],
+      name: 'Execute',
+      selector: (row) => row['execution'],
       sortable: true,
-      cell: (row) => CellTip(row['Command']),
-      exportSelector: 'Command',
-    },
-    {
-      name: 'Parameters',
-      selector: (row) => row['Parameters'],
-      sortable: true,
-      cell: (row) => CellTip(row['Parameters']),
-      exportSelector: 'Parameters',
-    },
-    {
-      name: 'Scheduled Time',
-      selector: (row) => row['ScheduledTime'],
-      sortable: true,
-      cell: cellDateFormatter({ format: 'relative' }),
-      exportSelector: 'ScheduledTime',
-    },
-    {
-      name: 'Last executed time',
-      selector: (row) => row['ExecutedTime'],
-      sortable: true,
-      cell: cellDateFormatter({ format: 'relative' }),
-      exportSelector: 'ExecutedTime',
-    },
-    {
-      name: 'Recurrence',
-      selector: (row) => row['Recurrence'],
-      sortable: true,
-      cell: (row) => CellTip(row['Recurrence']),
-      exportSelector: 'Recurrence',
-    },
-    {
-      name: 'Sending to',
-      selector: (row) => row['PostExecution'],
-      sortable: true,
-      cell: (row) => CellTip(row['PostExecution']),
-      exportSelector: 'PostExecution',
+      cell: cellGenericFormatter(),
+      exportSelector: 'execution',
     },
     {
       name: 'Actions',
@@ -185,10 +133,14 @@ const AlertRules = () => {
 
   const ifvalues = [
     { value: 'New-InboxRule', label: 'A new Inbox rule is created' },
-    { value: 'Set-InboxRule', label: 'A existing Inbox rule is created' },
+    { value: 'Set-InboxRule', label: 'A existing Inbox rule is edited' },
     {
       value: 'Add member to role.',
       label: 'A user has been added to an admin role',
+    },
+    {
+      value: 'Add User.',
+      label: 'A user account was created',
     },
     {
       value: 'Disable account.',
@@ -216,34 +168,41 @@ const AlertRules = () => {
     },
     {
       value: 'UserLoggedInFromUnknownLocation',
-      label: 'A user has logged in from a location ',
+      label: 'A user has logged in from a location not in the allowed locations list',
     },
     {
-      value: 'Add service principal',
-      label: 'A service prinicipal has been created',
+      value: 'Add service principal.',
+      label: 'A service principal has been created',
     },
     {
       value: 'Remove service principal.',
       label: 'A service principal has been removed',
     },
-    {
-      value: 'ImpossibleTravel',
-      label: 'A user has logged in from an impossible location (Based on IP)',
-    },
+    //  {
+    //    value: 'ImpossibleTravel',
+    //    label: 'A user has logged in from an impossible location (Based on IP)',
+    //  },
     {
       value: 'badRepIP',
-      label: 'A user has logged in from a known bad-reputation IP',
+      label: 'A user has logged in a using a known VPN, Proxy, Or anonymizer',
+    },
+    {
+      value: 'HostedIP',
+      label: 'A user has logged in a using a known hosting provider IP',
     },
     { value: 'customField', label: 'Custom Log Query' },
+    { value: 'anyAlert', label: 'Any alert has been received' },
   ]
+
+  const customIfValues = [{ value: 'customField', label: 'Custom Log Query' }]
   const dovalues = [
     { value: 'cippcommand', label: 'Execute a CIPP Command' },
     { value: 'becremediate', label: 'Execute a BEC Remediate' },
     { value: 'disableuser', label: 'Disable the user in the log entry' },
-    { value: 'generatelog', label: 'Generate a log entry' },
+    // { value: 'generatelog', label: 'Generate a log entry' },
     { value: 'generatemail', label: 'Generate an email' },
     { value: 'generatePSA', label: 'Generate a PSA ticket' },
-    { value: 'generateWebhook', label: 'Forward the log as webhook' },
+    { value: 'generateWebhook', label: 'Generate a webhook' },
     {
       value: 'store',
       label: 'Store the log into an external Azure Storage Account',
@@ -285,7 +244,10 @@ const AlertRules = () => {
           {i === 0 ? 'If' : 'And'}
           <CRow className="align-items-center" key={`if-${i}`}>
             <CCol>
-              <RFFCFormSelect name={`ifs.${i}`} values={ifvalues} />
+              <RFFCFormSelect
+                name={`ifs.${i}.selection`}
+                values={i === 0 ? ifvalues : customIfValues}
+              />
             </CCol>
             <CCol xs="auto">
               {ifCount > 1 && (
@@ -312,8 +274,19 @@ const AlertRules = () => {
           </CRow>
           <CRow className="mb-3">
             <CCol>
-              <Condition when={`ifs.${i}`} is="customField">
-                <RFFCFormInput type="text" name="field" label="Query" />
+              <Condition when={`ifs.${i}.selection`} is="customField">
+                <RFFCFormInput type="text" name={`ifs.${i}.field`} label="Query" />
+              </Condition>
+              <Condition when={`ifs.${i}.selection`} is="UserLoggedInFromUnknownLocation">
+                <RFFSelectSearch
+                  name={`ifs.${i}.allowedcountries`}
+                  label="Select the countries to not alert on logon from"
+                  multi
+                  values={countryList.map(({ Code, Name }) => ({
+                    value: Code,
+                    name: Name,
+                  }))}
+                />
               </Condition>
             </CCol>
           </CRow>
@@ -322,6 +295,11 @@ const AlertRules = () => {
     }
     return ifs
   }
+
+  const ExpandedComponent = ({ data }) => (
+    // eslint-disable-next-line react/prop-types
+    <CippCodeBlock language="json" code={JSON.stringify(data?.Data, null, 2)} />
+  )
 
   const renderDos = () => {
     const dos = []
@@ -364,7 +342,8 @@ const AlertRules = () => {
                       value: cmd.Function,
                       name: cmd.Function,
                     }))}
-                    name={`command`}
+                    name={`do.${i}.command`}
+                    key={`do.${i}.command`}
                     placeholder={
                       isLoadingcmd ? (
                         <CSpinner size="sm" />
@@ -380,7 +359,11 @@ const AlertRules = () => {
             <Condition when={`do.${i}.execute`} is="store">
               <CRow className="mb-3">
                 <CCol>
-                  <RFFCFormInput type="text" name="sasurl" label="Connection String" />
+                  <RFFCFormInput
+                    type="text"
+                    name={`do.${i}.connectionstring`}
+                    label="Connection String"
+                  />
                 </CCol>
               </CRow>
             </Condition>
@@ -392,7 +375,7 @@ const AlertRules = () => {
   }
 
   return (
-    <CippPage title={`Add Schedule`} tenantSelector={false}>
+    <CippPage title={`Add Rule`} tenantSelector={false}>
       <>
         <CRow>
           <CCol md={4}>
@@ -433,68 +416,71 @@ const AlertRules = () => {
                         <FormSpy>
                           {/* eslint-disable react/prop-types */}
                           {(props) => {
-                            const selectedCommand = availableCommands.find(
-                              (cmd) => cmd.Function === props.values.command?.value,
-                            )
-                            let paramblock = null
-                            if (selectedCommand) {
-                              //if the command parameter type is boolean we use <RFFCFormCheck /> else <RFFCFormInput />.
-                              const parameters = selectedCommand.Parameters
-                              if (parameters.length > 0) {
-                                paramblock = parameters.map((param, idx) => (
-                                  <CRow key={idx} className="mb-3">
-                                    <CTooltip
-                                      content={
-                                        param?.Description !== null
-                                          ? param.Description
-                                          : 'No Description'
-                                      }
-                                      placement="left"
-                                    >
-                                      <CCol>
-                                        {param.Type === 'System.Boolean' ||
-                                        param.Type ===
-                                          'System.Management.Automation.SwitchParameter' ? (
-                                          <>
-                                            <label>{param.Name}</label>
-                                            <RFFCFormSwitch
-                                              initialValue={false}
-                                              name={`parameters.${param.Name}`}
-                                              label={`True`}
-                                            />
-                                          </>
-                                        ) : (
-                                          <>
-                                            {param.Type === 'System.Collections.Hashtable' ? (
-                                              <RFFCFormInputArray
-                                                name={`parameters.${param.Name}`}
-                                                label={`${param.Name}`}
-                                                key={idx}
-                                              />
+                            return props.values.do?.map((command, commandIndex) => {
+                              const selectedCommand = availableCommands.find(
+                                (cmd) => cmd.Function === command.command?.value,
+                              )
+                              let paramblock = null
+                              if (selectedCommand) {
+                                const parameters = selectedCommand.Parameters
+                                if (parameters.length > 0) {
+                                  paramblock = parameters.map((param, idx) => (
+                                    <>
+                                      <CRow key={idx} className="mb-3">
+                                        <CTooltip
+                                          content={
+                                            param?.Description !== null
+                                              ? param.Description
+                                              : 'No Description'
+                                          }
+                                          placement="left"
+                                        >
+                                          <CCol>
+                                            {param.Type === 'System.Boolean' ||
+                                            param.Type ===
+                                              'System.Management.Automation.SwitchParameter' ? (
+                                              <>
+                                                <label>{param.Name}</label>
+                                                <RFFCFormSwitch
+                                                  initialValue={false}
+                                                  name={`do.${commandIndex}.parameters.${param.Name}`}
+                                                  label={`True`}
+                                                />
+                                              </>
                                             ) : (
-                                              <RFFCFormInput
-                                                type="text"
-                                                key={idx}
-                                                name={`parameters.${param.Name}`}
-                                                label={`${param.Name}`}
-                                              />
+                                              <>
+                                                {param.Type === 'System.Collections.Hashtable' ? (
+                                                  <RFFCFormInputArray
+                                                    name={`do.${commandIndex}.parameters.${param.Name}`}
+                                                    label={`${param.Name}`}
+                                                    key={idx}
+                                                  />
+                                                ) : (
+                                                  <RFFCFormInput
+                                                    type="text"
+                                                    key={idx}
+                                                    name={`do.${commandIndex}.parameters.${param.Name}`}
+                                                    label={`${param.Name}`}
+                                                  />
+                                                )}
+                                              </>
                                             )}
-                                          </>
-                                        )}
-                                      </CCol>
-                                    </CTooltip>
-                                  </CRow>
-                                ))
+                                          </CCol>
+                                        </CTooltip>
+                                      </CRow>
+                                    </>
+                                  ))
+                                }
                               }
-                            }
-                            return paramblock
+                              return paramblock
+                            })
                           }}
                         </FormSpy>
                       </CRow>
                       <CRow className="mb-3">
                         <CCol md={6}>
                           <CButton type="submit" disabled={submitting}>
-                            Add Schedule
+                            Add Rule
                             {postResults.isFetching && (
                               <FontAwesomeIcon
                                 icon={faCircleNotch}
@@ -511,6 +497,19 @@ const AlertRules = () => {
                           <li>{postResults.data.Results}</li>
                         </CCallout>
                       )}
+                      {getResults.isFetching && (
+                        <CCallout color="info">
+                          <CSpinner>Loading</CSpinner>
+                        </CCallout>
+                      )}
+                      {getResults.isSuccess && (
+                        <CCallout color="info">{getResults.data?.Results}</CCallout>
+                      )}
+                      {getResults.isError && (
+                        <CCallout color="danger">
+                          Could not connect to API: {getResults.error.message}
+                        </CCallout>
+                      )}
                     </CForm>
                   )
                 }}
@@ -524,8 +523,15 @@ const AlertRules = () => {
                 allTenants: true,
                 helpContext: 'https://google.com',
               }}
-              title="Scheduled Tasks"
+              title="Alert Rules"
               tenantSelector={false}
+              titleButton={
+                <TitleButton
+                  icon={'scroll'}
+                  onClick={() => setShowPending(true)}
+                  title="Pending Webhooks"
+                />
+              }
               datatable={{
                 tableProps: {
                   selectableRows: true,
@@ -533,33 +539,42 @@ const AlertRules = () => {
                     {
                       label: 'Delete task',
                       modal: true,
-                      modalUrl: `/api/RemoveScheduledItem?&ID=!RowKey`,
+                      modalUrl: `/api/RemoveWebhookAlert?Tenantfilter=!Tenant&ID=!RowKey`,
                       modalMessage: 'Do you want to delete this job?',
                     },
                   ],
                 },
-                filterlist: [
-                  {
-                    filterName: 'Planned Jobs',
-                    filter: 'Complex: TaskState eq Planned',
-                  },
-                  {
-                    filterName: 'Completed Jobs',
-                    filter: 'Complex: TaskState eq Completed',
-                  },
-                  {
-                    filterName: 'Recurring Jobs',
-                    filter: 'Complex: Recurrence gt 0',
-                  },
-                  {
-                    filterName: 'One-time Jobs',
-                    filter: 'Complex: Recurrence eq 0',
-                  },
-                ],
                 keyField: 'id',
                 columns,
                 reportName: `Scheduled-Jobs`,
-                path: `/api/ListScheduledItems?RefreshGuid=${refreshState}`,
+                path: `/api/ListWebhookAlert?RefreshGuid=${refreshState}`,
+              }}
+            />
+            <CippTableOffcanvas
+              path="/api/ListPendingWebhooks"
+              title="Pending Webhooks"
+              state={showPending}
+              hideFunction={() => setShowPending(false)}
+              columns={[
+                {
+                  name: 'Tenant',
+                  selector: (row) => row?.TenantFilter,
+                  sortable: true,
+                  cell: cellGenericFormatter(),
+                  exportSelector: 'TenantFilter',
+                },
+                {
+                  name: 'Type',
+                  selector: (row) => row?.Type,
+                  sortable: true,
+                  cell: cellGenericFormatter(),
+                  exportSelector: 'Type',
+                },
+              ]}
+              tableProps={{
+                expandableRows: true,
+                expandableRowsComponent: ExpandedComponent,
+                expandOnRowClicked: true,
               }}
             />
           </CCol>
