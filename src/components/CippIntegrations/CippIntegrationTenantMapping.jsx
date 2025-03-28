@@ -85,10 +85,11 @@ const CippIntegrationSettings = ({ children }) => {
     if (tableData?.find((item) => item.TenantId === selectedTenant.addedFields.customerId)) return;
 
     const newRowData = {
-      TenantId: selectedTenant.addedFields.customerId,
+      TenantId: selectedTenant.value,
       Tenant: selectedTenant.label,
       IntegrationName: selectedCompany.label,
       IntegrationId: selectedCompany.value,
+      TenantDomain: selectedTenant.addedFields.defaultDomainName,
     };
 
     setTableData([...tableData, newRowData]);
@@ -109,6 +110,7 @@ const CippIntegrationSettings = ({ children }) => {
         newTableData.push({
           TenantId: tenant.customerId,
           Tenant: tenant.displayName,
+          TenantDomain: tenant.defaultDomainName,
           IntegrationName: matchingCompany.name,
           IntegrationId: matchingCompany.value,
         });
@@ -167,6 +169,8 @@ const CippIntegrationSettings = ({ children }) => {
                     multiple={false}
                     required={false}
                     disableClearable={false}
+                    removeOptions={tableData.map((item) => item.TenantId)}
+                    valueField="customerId"
                   />
                 </Box>
               </Grid>
@@ -235,7 +239,7 @@ const CippIntegrationSettings = ({ children }) => {
                 reportTitle={`${extension.id}-tenant-map`}
                 data={tableData}
                 simple={false}
-                simpleColumns={["Tenant", "IntegrationName"]}
+                simpleColumns={["IntegrationName", "Tenant", "TenantDomain"]}
                 isFetching={mappings.isFetching}
                 refreshFunction={() => mappings.refetch()}
               />
