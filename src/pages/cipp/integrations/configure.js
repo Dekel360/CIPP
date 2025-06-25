@@ -1,4 +1,14 @@
-import { Alert, Box, Button, CardContent, Stack, Tab, Tabs, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  CardContent,
+  Skeleton,
+  Stack,
+  Tab,
+  Tabs,
+  Typography,
+} from "@mui/material";
 import CippIntegrationSettings from "/src/components/CippIntegrations/CippIntegrationSettings";
 import { Layout as DashboardLayout } from "/src/layouts/index.js";
 import { useForm } from "react-hook-form";
@@ -33,6 +43,8 @@ const Page = () => {
   const integrations = ApiGetCall({
     url: "/api/ListExtensionsConfig",
     queryKey: "Integrations",
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   const [testQuery, setTestQuery] = useState({ url: "", waiting: false, queryKey: "" });
@@ -96,6 +108,17 @@ const Page = () => {
 
   return (
     <>
+      {integrations.isLoading && (
+        <CippPageCard title="Integrations" headerText={extension.headerText} hideTitleText={true}>
+          <CardContent>
+            <Stack spacing={2}>
+              <Skeleton variant="rectangular" height={150} />
+              <Skeleton variant="rectangular" height={150} />
+              <Skeleton variant="rectangular" height={400} />
+            </Stack>
+          </CardContent>
+        </CippPageCard>
+      )}
       {integrations.isSuccess && extension && (
         <CippPageCard
           title={extension.name}
@@ -131,7 +154,13 @@ const Page = () => {
                     variant="contained"
                     color="primary"
                     onClick={() => handleIntegrationTest()}
-                    disabled={actionTestResults?.isLoading}
+                    disabled={
+                      actionTestResults?.isLoading ||
+                      (extension?.SettingOptions?.find(
+                        (setting) => setting?.name === `${extension.id}.Enabled`
+                      ) &&
+                        integrations?.data?.[extension.id]?.Enabled !== true)
+                    }
                   >
                     <SvgIcon fontSize="small" style={{ marginRight: "8" }}>
                       <BeakerIcon />
@@ -146,7 +175,13 @@ const Page = () => {
                     variant="contained"
                     color="primary"
                     onClick={() => handleIntegrationSync()}
-                    disabled={actionSyncResults.isLoading}
+                    disabled={
+                      actionSyncResults.isLoading ||
+                      (extension?.SettingOptions?.find(
+                        (setting) => setting?.name === `${extension.id}.Enabled`
+                      ) &&
+                        integrations?.data?.[extension.id]?.Enabled !== true)
+                    }
                   >
                     <SvgIcon fontSize="small" style={{ marginRight: "8" }}>
                       <ArrowPathIcon />
@@ -158,13 +193,12 @@ const Page = () => {
               {extension?.links && (
                 <>
                   {extension.links.map((link, index) => (
-                    <Box>
+                    <Box key={index}> 
                       <Button
                         href={link.url}
                         target="_blank"
                         rel="noreferrer"
                         color="inherit"
-                        key={index}
                       >
                         <SvgIcon fontSize="small" style={{ marginRight: "8" }}>
                           <ArrowTopRightOnSquareIcon />
@@ -179,13 +213,32 @@ const Page = () => {
             <CippApiResults apiObject={actionTestResults} />
             <CippApiResults apiObject={actionSyncResults} />
           </CardContent>
-
           <Box sx={{ width: "100%" }}>
             <Box sx={{ borderBottom: 1, borderColor: "divider", px: "24px", m: "auto" }}>
               <Tabs value={value} onChange={handleTabChange} aria-label="Integration settings">
                 <Tab label="Settings" {...tabProps(0)} />
-                {extension?.mappingRequired && <Tab label="Tenant Mapping" {...tabProps(1)} />}
-                {extension?.fieldMapping && <Tab label="Field Mapping" {...tabProps(2)} />}
+                {extension?.mappingRequired && (
+                  <Tab
+                    label="Tenant Mapping"
+                    {...tabProps(1)}
+                    disabled={
+                      extension?.SettingOptions?.find(
+                        (setting) => setting?.name === `${extension.id}.Enabled`
+                      ) && integrations?.data?.[extension.id]?.Enabled !== true
+                    }
+                  />
+                )}
+                {extension?.fieldMapping && (
+                  <Tab
+                    label="Field Mapping"
+                    {...tabProps(2)}
+                    disabled={
+                      extension?.SettingOptions?.find(
+                        (setting) => setting.name === `${extension.id}.Enabled`
+                      ) && integrations?.data?.[extension.id]?.Enabled !== true
+                    }
+                  />
+                )}
               </Tabs>
             </Box>
             <CippCardTabPanel value={value} index={0}>

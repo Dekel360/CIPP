@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button, Typography } from "@mui/material";
 import {
   Save as SaveIcon,
@@ -20,22 +20,8 @@ import { CippOffCanvas } from "../CippComponents/CippOffCanvas";
 import { CippCodeBlock } from "../CippComponents/CippCodeBlock";
 import CippSchedulerForm from "../CippFormPages/CippSchedulerForm";
 import defaultPresets from "../../data/GraphExplorerPresets";
-import { lighten, darken, styled, Grid, Stack } from "@mui/system";
-
-const GroupHeader = styled("div")(({ theme }) => ({
-  position: "sticky",
-  top: "-8px",
-  padding: "4px 10px",
-  color: theme.palette.primary.main,
-  backgroundColor: lighten(theme.palette.primary.light, 0.85),
-  ...theme.applyStyles("dark", {
-    backgroundColor: darken(theme.palette.primary.main, 0.8),
-  }),
-}));
-
-const GroupItems = styled("ul")({
-  padding: 0,
-});
+import { Grid, Stack } from "@mui/system";
+import { GroupHeader, GroupItems } from "../CippComponents/CippAutocompleteGrouping";
 
 const CippGraphExplorerFilter = ({
   endpointFilter = "",
@@ -66,6 +52,12 @@ const CippGraphExplorerFilter = ({
       $count: false,
       manualPagination: false,
       IsShared: false,
+    },
+  });
+  const presetControl = useForm({
+    mode: "onChange",
+    defaultValues: {
+      reportTemplate: null,
     },
   });
 
@@ -185,7 +177,7 @@ const CippGraphExplorerFilter = ({
     });
   };
 
-  const selectedPresets = useWatch({ control, name: "reportTemplate" });
+  const selectedPresets = useWatch({ control: presetControl.control, name: "reportTemplate" });
   useEffect(() => {
     if (selectedPresets?.addedFields?.params) {
       setPresetOwner(selectedPresets?.addedFields?.IsMyPreset ?? false);
@@ -371,7 +363,6 @@ const CippGraphExplorerFilter = ({
 
   function getPresetProps(values) {
     var newvals = Object.assign({}, values);
-    console.log(values);
     if (newvals?.$select !== undefined && Array.isArray(newvals?.$select)) {
       newvals.$select = newvals?.$select.map((p) => p.value).join(",");
     }
@@ -460,6 +451,7 @@ const CippGraphExplorerFilter = ({
     setCardExpanded(false);
   };
 
+  //console.log(cardExpanded);
   const deletePreset = (id) => {
     savePresetApi.mutate({
       url: "/api/ExecGraphExplorerPreset",
@@ -473,6 +465,7 @@ const CippGraphExplorerFilter = ({
         title="Graph Filter"
         component={component}
         accordionExpanded={cardExpanded}
+        onAccordionChange={(expanded) => setCardExpanded(expanded)}
         cardSx={{
           width: "100%",
           height: "100%",
@@ -548,13 +541,13 @@ const CippGraphExplorerFilter = ({
         }
       >
         <Grid container size={12} spacing={2} sx={{ mb: 2 }}>
-          <Grid item size={gridItemSize}>
+          <Grid size={gridItemSize}>
             <CippFormComponent
               type="autoComplete"
               name="reportTemplate"
               label="Select a preset"
               multiple={false}
-              formControl={formControl}
+              formControl={presetControl}
               options={presetOptions}
               isFetching={presetList.isFetching}
               groupBy={(option) => option.type}
@@ -569,7 +562,7 @@ const CippGraphExplorerFilter = ({
           </Grid>
 
           {/* Preset Name Field */}
-          <Grid item size={gridItemSize}>
+          <Grid size={gridItemSize}>
             <CippFormComponent
               type="textField"
               name="name"
@@ -579,7 +572,7 @@ const CippGraphExplorerFilter = ({
             />
           </Grid>
 
-          <Grid item size={gridItemSize}>
+          <Grid size={gridItemSize}>
             <CippFormComponent
               type="textField"
               name="endpoint"
@@ -590,7 +583,7 @@ const CippGraphExplorerFilter = ({
             />
           </Grid>
 
-          <Grid item size={gridItemSize}>
+          <Grid size={gridItemSize}>
             <CippFormComponent
               type="autoComplete"
               name="$select"
@@ -613,7 +606,7 @@ const CippGraphExplorerFilter = ({
           </Grid>
 
           {/* Filter Field */}
-          <Grid item size={gridItemSize}>
+          <Grid size={gridItemSize}>
             <CippFormComponent
               type="textField"
               name="$filter"
@@ -624,7 +617,7 @@ const CippGraphExplorerFilter = ({
           </Grid>
 
           {/* Expand Field */}
-          <Grid item size={gridItemSize}>
+          <Grid size={gridItemSize}>
             <CippFormComponent
               type="textField"
               name="$expand"
@@ -635,7 +628,7 @@ const CippGraphExplorerFilter = ({
           </Grid>
 
           {/* Top Field */}
-          <Grid item size={gridItemSize}>
+          <Grid size={gridItemSize}>
             <CippFormComponent
               type="number"
               fullWidth
@@ -647,7 +640,7 @@ const CippGraphExplorerFilter = ({
           </Grid>
 
           {/* Search Field */}
-          <Grid item size={gridItemSize}>
+          <Grid size={gridItemSize}>
             <CippFormComponent
               type="textField"
               name="$search"
@@ -658,7 +651,7 @@ const CippGraphExplorerFilter = ({
           </Grid>
 
           {/* Format Field */}
-          <Grid item size={gridItemSize}>
+          <Grid size={gridItemSize}>
             <CippFormComponent
               type="textField"
               name="$format"
@@ -670,7 +663,7 @@ const CippGraphExplorerFilter = ({
         </Grid>
         <Grid container spacing={2}>
           {/* Reverse Tenant Lookup Switch */}
-          <Grid item size={{ xs: 6, sm: gridSwitchSize }}>
+          <Grid size={{ xs: 6, sm: gridSwitchSize }}>
             <CippFormComponent
               type="switch"
               name="ReverseTenantLookup"
@@ -684,7 +677,7 @@ const CippGraphExplorerFilter = ({
             compareValue={true}
           >
             {/* Reverse Tenant Lookup Property Field */}
-            <Grid item size={6}>
+            <Grid size={6}>
               <CippFormComponent
                 type="textField"
                 name="ReverseTenantLookupProperty"
@@ -695,7 +688,7 @@ const CippGraphExplorerFilter = ({
             </Grid>
           </CippFormCondition>
           {/* No Pagination Switch */}
-          <Grid item size={{ xs: 6, sm: gridSwitchSize }}>
+          <Grid size={{ xs: 6, sm: gridSwitchSize }}>
             <CippFormComponent
               type="switch"
               name="NoPagination"
@@ -704,7 +697,7 @@ const CippGraphExplorerFilter = ({
             />
           </Grid>
           {/* $count Switch */}
-          <Grid item size={{ xs: 6, sm: gridSwitchSize }}>
+          <Grid size={{ xs: 6, sm: gridSwitchSize }}>
             <CippFormComponent
               type="switch"
               name="$count"
@@ -714,7 +707,7 @@ const CippGraphExplorerFilter = ({
           </Grid>
 
           {/* AsApp switch */}
-          <Grid item size={{ xs: 6, sm: gridSwitchSize }}>
+          <Grid size={{ xs: 6, sm: gridSwitchSize }}>
             <CippFormComponent
               name="AsApp"
               type="switch"
