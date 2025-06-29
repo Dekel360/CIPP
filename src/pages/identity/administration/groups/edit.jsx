@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Box, Button, Divider, Typography } from "@mui/material";
+import { Box, Button, Divider, Typography, Alert } from "@mui/material";
 import { Grid } from "@mui/system";
 import { useForm } from "react-hook-form";
 import { Layout as DashboardLayout } from "/src/layouts/index.js";
@@ -18,6 +18,7 @@ const EditGroup = () => {
   const [groupIdReady, setGroupIdReady] = useState(false);
   const [showMembershipTable, setShowMembershipTable] = useState(false);
   const [combinedData, setCombinedData] = useState([]);
+  const [initialValues, setInitialValues] = useState({});
   const tenantFilter = useSettings().currentTenant;
 
   const groupInfo = ApiGetCall({
@@ -65,13 +66,14 @@ const EditGroup = () => {
         ];
         setCombinedData(combinedData);
 
-        // Reset the form with all values
-        formControl.reset({
+        // Create initial values object
+        const formValues = {
           tenantFilter: tenantFilter,
           mail: group.mail,
           mailNickname: group.mailNickname || "",
           allowExternal: groupInfo?.data?.allowExternal,
           sendCopies: groupInfo?.data?.sendCopies,
+          hideFromOutlookClients: groupInfo?.data?.hideFromOutlookClients,
           displayName: group.displayName,
           description: group.description || "",
           membershipRules: group.membershipRule || "",
@@ -103,10 +105,36 @@ const EditGroup = () => {
           RemoveOwner: [],
           AddContact: [],
           RemoveContact: [],
+        };
+
+        // Store initial values for comparison
+        setInitialValues({
+          allowExternal: groupInfo?.data?.allowExternal,
+          sendCopies: groupInfo?.data?.sendCopies,
+          hideFromOutlookClients: groupInfo?.data?.hideFromOutlookClients,
         });
+
+        // Reset the form with all values
+        formControl.reset(formValues);
       }
     }
   }, [groupInfo.isSuccess, router.query, groupInfo.isFetching]);
+
+  // Custom data formatter to only send changed values
+  const customDataFormatter = (formData) => {
+    const cleanedData = { ...formData };
+
+    // Properties that should only be sent if they've changed from initial values
+    const changeDetectionProperties = ["allowExternal", "sendCopies", "hideFromOutlookClients"];
+
+    changeDetectionProperties.forEach((property) => {
+      if (formData[property] === initialValues[property]) {
+        delete cleanedData[property];
+      }
+    });
+
+    return cleanedData;
+  };
 
   return (
     <>
@@ -117,6 +145,7 @@ const EditGroup = () => {
         formPageType="Edit"
         backButtonTitle="Group Overview"
         postUrl="/api/EditGroup"
+        customDataformatter={customDataFormatter}
         titleButton={
           <>
             <Button
@@ -130,6 +159,11 @@ const EditGroup = () => {
           </>
         }
       >
+        {groupInfo.isSuccess && groupInfo.data?.groupInfo?.onPremisesSyncEnabled && (
+          <Alert severity="error" sx={{ mb: 1 }}>
+            This group is synced from on-premises Active Directory. Changes should be made in the on-premises environment instead.
+          </Alert>
+        )}
         {showMembershipTable ? (
           <Box sx={{ my: 2 }}>
             <CippDataTable
@@ -325,6 +359,19 @@ const EditGroup = () => {
                     type="switch"
                     label="Send Copies of team emails and events to team members inboxes"
                     name="sendCopies"
+                    formControl={formControl}
+                    isFetching={groupInfo.isFetching}
+                    disabled={groupInfo.isFetching}
+                  />
+                </Grid>
+              )}
+
+              {groupType === "Microsoft 365" && (
+                <Grid size={{ xs: 12 }}>
+                  <CippFormComponent
+                    type="switch"
+                    label="Hide group mailbox from Outlook"
+                    name="hideFromOutlookClients"
                     formControl={formControl}
                     isFetching={groupInfo.isFetching}
                     disabled={groupInfo.isFetching}
