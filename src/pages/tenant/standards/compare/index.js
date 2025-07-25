@@ -171,6 +171,64 @@ const Page = () => {
                   });
                 }
               });
+            } else if (
+              standardKey === "ConditionalAccessTemplate" &&
+              Array.isArray(standardConfig)
+            ) {
+              // Process each ConditionalAccessTemplate item separately
+              standardConfig.forEach((templateItem, index) => {
+                const templateId = templateItem.TemplateList?.value;
+                if (templateId) {
+                  const standardId = `standards.ConditionalAccessTemplate.${templateId}`;
+                  const standardInfo = standards.find(
+                    (s) => s.name === `standards.ConditionalAccessTemplate`
+                  );
+
+                  // Find the tenant's value for this specific template
+                  const currentTenantStandard = currentTenantData.find(
+                    (s) => s.standardId === standardId
+                  );
+                  const standardObject = currentTenantObj?.[standardId];
+                  const directStandardValue = standardObject?.Value;
+                  let isCompliant = false;
+
+                  // For ConditionalAccessTemplate, the value is true if compliant, or an object with comparison data if not compliant
+                  if (directStandardValue === true) {
+                    isCompliant = true;
+                  } else {
+                    isCompliant = false;
+                  }
+
+                  // Create a standardValue object that contains the template settings
+                  const templateSettings = {
+                    templateId,
+                    Template: templateItem.TemplateList?.label || "Unknown Template",
+                  };
+
+                  allStandards.push({
+                    standardId,
+                    standardName: `Conditional Access Template: ${
+                      templateItem.TemplateList?.label || templateId
+                    }`,
+                    currentTenantValue:
+                      standardObject !== undefined
+                        ? {
+                            Value: directStandardValue,
+                            LastRefresh: standardObject?.LastRefresh,
+                          }
+                        : currentTenantStandard?.value,
+                    standardValue: templateSettings, // Use the template settings object instead of true
+                    complianceStatus: isCompliant ? "Compliant" : "Non-Compliant",
+                    complianceDetails:
+                      standardInfo?.docsDescription || standardInfo?.helpText || "",
+                    standardDescription: standardInfo?.helpText || "",
+                    standardImpact: standardInfo?.impact || "Medium Impact",
+                    standardImpactColour: standardInfo?.impactColour || "warning",
+                    templateName: selectedTemplate?.templateName || "Standard Template",
+                    templateActions: templateItem.action || [],
+                  });
+                }
+              });
             } else {
               // Regular handling for other standards
               const standardId = `standards.${standardKey}`;
@@ -315,10 +373,20 @@ const Page = () => {
       const categoryMatchesSearch = !searchQuery || category.toLowerCase().includes(searchLower);
 
       const filteredStandards = groupedStandards[category].filter((standard) => {
+        const tenantValue = standard.currentTenantValue?.Value || standard.currentTenantValue;
+        const hasLicenseMissing =
+          typeof tenantValue === "string" && tenantValue.startsWith("License Missing:");
+
         const matchesFilter =
           filter === "all" ||
           (filter === "compliant" && standard.complianceStatus === "Compliant") ||
-          (filter === "nonCompliant" && standard.complianceStatus === "Non-Compliant");
+          (filter === "nonCompliant" && standard.complianceStatus === "Non-Compliant") ||
+          (filter === "nonCompliantWithLicense" &&
+            standard.complianceStatus === "Non-Compliant" &&
+            !hasLicenseMissing) ||
+          (filter === "nonCompliantWithoutLicense" &&
+            standard.complianceStatus === "Non-Compliant" &&
+            hasLicenseMissing);
 
         const matchesSearch =
           !searchQuery ||
@@ -345,10 +413,46 @@ const Page = () => {
   const reportingDisabledCount =
     comparisonData?.filter((standard) => standard.complianceStatus === "Reporting Disabled")
       .length || 0;
+
+  // Calculate license-related metrics
+  const missingLicenseCount =
+    comparisonData?.filter((standard) => {
+      const tenantValue = standard.currentTenantValue?.Value || standard.currentTenantValue;
+      return typeof tenantValue === "string" && tenantValue.startsWith("License Missing:");
+    }).length || 0;
+
+  const nonCompliantWithLicenseCount =
+    comparisonData?.filter((standard) => {
+      const tenantValue = standard.currentTenantValue?.Value || standard.currentTenantValue;
+      return (
+        standard.complianceStatus === "Non-Compliant" &&
+        !(typeof tenantValue === "string" && tenantValue.startsWith("License Missing:"))
+      );
+    }).length || 0;
+
+  const nonCompliantWithoutLicenseCount =
+    comparisonData?.filter((standard) => {
+      const tenantValue = standard.currentTenantValue?.Value || standard.currentTenantValue;
+      return (
+        standard.complianceStatus === "Non-Compliant" &&
+        typeof tenantValue === "string" &&
+        tenantValue.startsWith("License Missing:")
+      );
+    }).length || 0;
+
   const compliancePercentage =
     allCount > 0
       ? Math.round((compliantCount / (allCount - reportingDisabledCount || 1)) * 100)
       : 0;
+
+  const missingLicensePercentage =
+    allCount > 0
+      ? Math.round((missingLicenseCount / (allCount - reportingDisabledCount || 1)) * 100)
+      : 0;
+
+  // Combined score: compliance percentage + missing license percentage
+  // This represents the total "addressable" compliance (compliant + could be compliant if licensed)
+  const combinedScore = compliancePercentage + missingLicensePercentage;
 
   return (
     <Box sx={{ flexGrow: 1, py: 4 }}>
@@ -384,7 +488,7 @@ const Page = () => {
             {comparisonApi.data?.find(
               (comparison) => comparison.tenantFilter === currentTenant
             ) && (
-              <Stack alignItems="center" direction="row" spacing={1}>
+              <Stack alignItems="center" direction="row" spacing={1} flexWrap="wrap">
                 <Chip
                   icon={
                     <SvgIcon fontSize="small">
@@ -402,6 +506,26 @@ const Page = () => {
                       : "error"
                   }
                   sx={{ ml: 2 }}
+                />
+                <Chip
+                  label={`${missingLicensePercentage}% Missing Required License`}
+                  variant="outlined"
+                  size="small"
+                  color={
+                    missingLicensePercentage === 0
+                      ? "success"
+                      : missingLicensePercentage <= 25
+                      ? "warning"
+                      : "error"
+                  }
+                />
+                <Chip
+                  label={`${combinedScore}% Combined Score`}
+                  variant="outlined"
+                  size="small"
+                  color={
+                    combinedScore >= 80 ? "success" : combinedScore >= 60 ? "warning" : "error"
+                  }
                 />
               </Stack>
             )}
@@ -574,6 +698,18 @@ const Page = () => {
                   onClick={() => setFilter("nonCompliant")}
                 >
                   Non-Compliant ({nonCompliantCount})
+                </Button>
+                <Button
+                  variant={filter === "nonCompliantWithLicense" ? "contained" : "outlined"}
+                  onClick={() => setFilter("nonCompliantWithLicense")}
+                >
+                  Non-Compliant (License available) ({nonCompliantWithLicenseCount})
+                </Button>
+                <Button
+                  variant={filter === "nonCompliantWithoutLicense" ? "contained" : "outlined"}
+                  onClick={() => setFilter("nonCompliantWithoutLicense")}
+                >
+                  Non-Compliant (License not available) ({nonCompliantWithoutLicenseCount})
                 </Button>
               </ButtonGroup>
             </Stack>
@@ -1049,8 +1185,8 @@ const Page = () => {
                                     textDecoration: "none",
                                   },
                                 },
-                                fontSize: "0.875rem", 
-                                lineHeight: 1.43,     
+                                fontSize: "0.875rem",
+                                lineHeight: 1.43,
                                 "& p": {
                                   my: 0,
                                 },
