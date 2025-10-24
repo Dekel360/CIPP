@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Button, Typography } from "@mui/material";
+import { Button, Link, Typography } from "@mui/material";
 import {
   Save as SaveIcon,
   Delete,
@@ -28,6 +28,7 @@ const CippGraphExplorerFilter = ({
   onSubmitFilter,
   onPresetChange,
   component = "accordion",
+  relatedQueryKeys = [],
 }) => {
   const [offCanvasOpen, setOffCanvasOpen] = useState(false);
   const [cardExpanded, setCardExpanded] = useState(true);
@@ -162,7 +163,7 @@ const CippGraphExplorerFilter = ({
   }, [currentEndpoint, debouncedRefetch]);
 
   const savePresetApi = ApiPostCall({
-    relatedQueryKeys: ["ListGraphExplorerPresets", "ListGraphRequest"],
+    relatedQueryKeys: ["ListGraphExplorerPresets*", "ListGraphRequest", ...relatedQueryKeys],
   });
 
   // Save preset function
@@ -397,6 +398,9 @@ const CippGraphExplorerFilter = ({
         <Typography variant="h5" sx={{ mb: 2 }}>
           Import / Export Graph Explorer Preset
         </Typography>
+        <Typography variant="body2" sx={{ mb: 2 }}>
+          Copy the JSON below to export your preset, or paste a preset JSON to import it.
+        </Typography>
         <CippCodeBlock
           type="editor"
           onChange={(value) => setEditorValues(JSON.parse(value))}
@@ -411,6 +415,7 @@ const CippGraphExplorerFilter = ({
           }}
           variant="contained"
           color="primary"
+          sx={{ mt: 2 }}
         >
           Import Template
         </Button>
@@ -558,6 +563,7 @@ const CippGraphExplorerFilter = ({
                 </li>
               )}
               placeholder="Select a preset"
+              helperText="Select an existing preset to load its parameters"
             />
           </Grid>
 
@@ -580,6 +586,19 @@ const CippGraphExplorerFilter = ({
               formControl={formControl}
               disabled={endpointFilter ? true : false}
               placeholder="Enter Graph API endpoint"
+              helperText={
+                <>
+                  The{" "}
+                  <Link
+                    href="https://learn.microsoft.com/en-us/graph/api/overview?view=graph-rest-beta"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Graph endpoint
+                  </Link>{" "}
+                  to query (e.g. https://graph.microsoft.com/beta/$Endpoint)
+                </>
+              }
             />
           </Grid>
 
@@ -601,7 +620,7 @@ const CippGraphExplorerFilter = ({
                 ]
               }
               placeholder="Columns to select"
-              helperText="Comma-separated list of columns to include in the response"
+              helperText="List of object properties to include in the response"
             />
           </Grid>
 
@@ -613,6 +632,17 @@ const CippGraphExplorerFilter = ({
               label="Filter"
               formControl={formControl}
               placeholder="OData filter"
+              helperText={
+                <Link
+                  href="https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=http"
+                  target="_blank"
+                  rel="noreferrer"
+                  sx={{ color: "primary.main" }}
+                  underline="hover"
+                >
+                  Graph $filter query
+                </Link>
+              }
             />
           </Grid>
 
