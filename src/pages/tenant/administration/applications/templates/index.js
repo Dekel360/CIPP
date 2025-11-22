@@ -1,11 +1,12 @@
 import { Layout as DashboardLayout } from "/src/layouts/index.js";
 import { TabbedLayout } from "/src/layouts/TabbedLayout";
 import { CippTablePage } from "/src/components/CippComponents/CippTablePage.jsx";
-import { Edit, Delete, ContentCopy, Add, GitHub } from "@mui/icons-material";
+import CippPermissionPreview from "/src/components/CippComponents/CippPermissionPreview.jsx";
+import { Edit, Delete, ContentCopy, Add, GitHub, RocketLaunch } from "@mui/icons-material";
 import tabOptions from "../tabOptions";
+import { ApiGetCall } from "/src/api/ApiCall";
 import { Button } from "@mui/material";
 import Link from "next/link";
-import { ApiGetCall } from "/src/api/ApiCall";
 
 const Page = () => {
   const pageTitle = "Templates";
@@ -92,19 +93,115 @@ const Page = () => {
   ];
 
   const offCanvas = {
-    extendedInfoFields: [
-      "TemplateName",
-      "AppId",
-      "AppName",
-      "PermissionSetName",
-      "UpdatedBy",
-      "Timestamp",
-    ],
+    extendedInfoFields: ["TemplateName", "AppType", "AppId", "AppName", "UpdatedBy", "Timestamp"],
     actions: actions,
+    children: (row) => {
+      // Default to EnterpriseApp for backward compatibility with older templates
+      const appType = row.AppType || "EnterpriseApp";
+
+      // Determine the title based on app type
+      let title = "Permission Preview";
+      if (appType === "GalleryTemplate") {
+        title = "Gallery Template Info";
+      } else if (appType === "ApplicationManifest") {
+        title = "Application Manifest";
+      }
+
+      return (
+        <CippPermissionPreview
+          permissions={appType === "EnterpriseApp" ? row.Permissions : null}
+          title={title}
+          galleryTemplate={
+            appType === "GalleryTemplate"
+              ? {
+                  label: row.AppName || "Unknown App",
+                  value: row.GalleryTemplateId || row.AppId,
+                  addedFields: {
+                    displayName: row.AppName,
+                    applicationId: row.AppId,
+                    // Use saved gallery information if available, otherwise provide defaults
+                    ...(row.GalleryInformation || {
+                      description: `Gallery template for ${row.AppName || "application"}`,
+                      publisher: "Microsoft Gallery",
+                      categories: ["Application"],
+                      supportedSingleSignOnModes: ["saml", "password", "oidc"],
+                      supportedProvisioningTypes: ["sync"],
+                    }),
+                  },
+                }
+              : null
+          }
+          applicationManifest={appType === "ApplicationManifest" ? row.ApplicationManifest : null}
+          maxHeight="800px"
+          showAppIds={true}
+        />
+      );
+    },
   };
+
+  const columns = [
+    {
+      name: "TemplateName",
+      label: "Template Name",
+      sortable: true,
+    },
+    {
+      name: "AppType",
+      label: "Type",
+      sortable: true,
+      formatter: (row) => {
+        // Default to EnterpriseApp for backward compatibility with older templates
+        const appType = row.AppType || "EnterpriseApp";
+        if (appType === "GalleryTemplate") {
+          return "Gallery Template";
+        } else if (appType === "ApplicationManifest") {
+          return "Application Manifest";
+        } else {
+          return "Enterprise App";
+        }
+      },
+    },
+    {
+      name: "AppId",
+      label: "App ID",
+      sortable: true,
+    },
+    {
+      name: "AppName",
+      label: "App Name",
+      sortable: true,
+    },
+    {
+      name: "PermissionSetName",
+      label: "Permission Set",
+      sortable: true,
+      formatter: (row) => {
+        // Default to EnterpriseApp for backward compatibility with older templates
+        const appType = row.AppType || "EnterpriseApp";
+        if (appType === "GalleryTemplate") {
+          return "Auto-Consent";
+        } else if (appType === "ApplicationManifest") {
+          return "Manifest-Defined";
+        } else {
+          return row.PermissionSetName || "-";
+        }
+      },
+    },
+    {
+      name: "UpdatedBy",
+      label: "Updated By",
+      sortable: true,
+    },
+    {
+      name: "Timestamp",
+      label: "Last Updated",
+      sortable: true,
+    },
+  ];
 
   const simpleColumns = [
     "TemplateName",
+    "AppType",
     "AppId",
     "AppName",
     "PermissionSetName",
@@ -117,18 +214,22 @@ const Page = () => {
       title={pageTitle}
       apiUrl={apiUrl}
       queryKey="ListAppApprovalTemplates"
+      columns={columns}
       simpleColumns={simpleColumns}
       tableProps={{ keyField: "TemplateId" }}
       actions={actions}
       offCanvas={offCanvas}
       cardButton={
-        <Button
-          component={Link}
-          href="/tenant/administration/applications/templates/add"
-          startIcon={<Add />}
-        >
-          Add App Approval Template
-        </Button>
+        <>
+          <Button
+            component={Link}
+            href="/tenant/administration/applications/templates/add"
+            startIcon={<Add />}
+            sx={{ mr: 1 }}
+          >
+            Add Template
+          </Button>
+        </>
       }
     />
   );
