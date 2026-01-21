@@ -22,7 +22,7 @@ const CippBrandingSettings = () => {
 
   const saveBrandingSettings = ApiPostCall({
     datafromUrl: true,
-    relatedQueryKeys: ["BrandingSettings"],
+    relatedQueryKeys: ["BrandingSettings", "userSettings"],
   });
 
   const handleLogoUpload = (event) => {
@@ -95,7 +95,7 @@ const CippBrandingSettings = () => {
   return (
     <CippButtonCard
       title="Branding Settings"
-      cardSx={{ display: "flex", flexDirection: "column" }}
+      cardSx={{ display: "flex", flexDirection: "column", height: "100%" }}
       CardButton={
         <Box sx={{ display: "flex", gap: 1 }}>
           <Button
