@@ -1,4 +1,4 @@
-import { Layout as DashboardLayout } from "/src/layouts/index.js";
+import { Layout as DashboardLayout } from "../../../layouts/index.js";
 import { useRouter } from "next/router";
 import {
   Check,
@@ -13,6 +13,7 @@ import {
   Info,
   FactCheck,
   Search,
+  Edit,
 } from "@mui/icons-material";
 import {
   Box,
@@ -29,20 +30,20 @@ import {
 import { Grid } from "@mui/system";
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
-import { CippBannerListCard } from "/src/components/CippCards/CippBannerListCard";
-import CippButtonCard from "/src/components/CippCards/CippButtonCard";
-import { CippHead } from "/src/components/CippComponents/CippHead";
-import { HeaderedTabbedLayout } from "/src/layouts/HeaderedTabbedLayout";
-import { ApiGetCall } from "/src/api/ApiCall";
-import { useSettings } from "/src/hooks/use-settings";
-import { CippApiDialog } from "/src/components/CippComponents/CippApiDialog";
-import { useDialog } from "/src/hooks/use-dialog";
+import { CippBannerListCard } from "../../../components/CippCards/CippBannerListCard";
+import CippButtonCard from "../../../components/CippCards/CippButtonCard";
+import { CippHead } from "../../../components/CippComponents/CippHead";
+import { HeaderedTabbedLayout } from "../../../layouts/HeaderedTabbedLayout";
+import { ApiGetCall } from "../../../api/ApiCall";
+import { useSettings } from "../../../hooks/use-settings";
+import { CippApiDialog } from "../../../components/CippComponents/CippApiDialog";
+import { useDialog } from "../../../hooks/use-dialog";
 import tabOptions from "./tabOptions.json";
-import standardsData from "/src/data/standards.json";
+import standardsData from "../../../data/standards.json";
 import { createDriftManagementActions } from "./driftManagementActions";
-import { ExecutiveReportButton } from "/src/components/ExecutiveReportButton";
+import { ExecutiveReportButton } from "../../../components/ExecutiveReportButton";
 import { CippAutoComplete } from "../../../components/CippComponents/CippAutocomplete";
-import CippFormComponent from "/src/components/CippComponents/CippFormComponent";
+import CippFormComponent from "../../../components/CippComponents/CippFormComponent";
 
 const ManageDriftPage = () => {
   const router = useRouter();
@@ -74,7 +75,7 @@ const ManageDriftPage = () => {
   const driftApi = ApiGetCall({
     url: "/api/listTenantDrift",
     data: {
-      TenantFilter: tenantFilter,
+      tenantFilter: tenantFilter,
     },
     queryKey: `TenantDrift-${tenantFilter}`,
   });
@@ -99,7 +100,7 @@ const ManageDriftPage = () => {
     url: "/api/ListStandardsCompare",
     data: {
       TemplateId: templateId,
-      TenantFilter: tenantFilter,
+      tenantFilter: tenantFilter,
       CompareToStandard: true,
     },
     queryKey: `StandardsCompare-${templateId}-${tenantFilter}`,
@@ -1109,7 +1110,7 @@ const ManageDriftPage = () => {
             receivedValue: deviation.receivedValue,
           },
         ],
-        TenantFilter: tenantFilter,
+        tenantFilter: tenantFilter,
       },
       action: {
         text: actionText,
@@ -1162,7 +1163,7 @@ const ManageDriftPage = () => {
             receivedValue: deviation.receivedValue,
           },
         ],
-        TenantFilter: tenantFilter,
+        tenantFilter: tenantFilter,
       },
       action: {
         text: actionText,
@@ -1239,7 +1240,7 @@ const ManageDriftPage = () => {
     setActionData({
       data: {
         deviations: deviations,
-        TenantFilter: tenantFilter,
+        tenantFilter: tenantFilter,
         receivedValues: deviations.map((d) => d.receivedValue),
       },
       action: {
@@ -1259,7 +1260,7 @@ const ManageDriftPage = () => {
     setActionData({
       data: {
         RemoveDriftCustomization: true,
-        TenantFilter: tenantFilter,
+        tenantFilter: tenantFilter,
       },
       action: {
         text: "remove all drift customizations",
@@ -1720,6 +1721,15 @@ const ManageDriftPage = () => {
                         );
                       }}
                       placeholder="Select a drift template..."
+                      disableClearable={true}
+                      customAction={{
+                        icon: <Edit fontSize="small" />,
+                        link: selectedTemplateOption?.value
+                          ? `/tenant/standards/templates/template?id=${selectedTemplateOption.value}&type=drift`
+                          : undefined,
+                        tooltip: "Edit Template",
+                        position: "inside",
+                      }}
                     />
 
                     <TextField

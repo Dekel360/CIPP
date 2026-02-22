@@ -1,10 +1,10 @@
-import { Layout as DashboardLayout } from "/src/layouts/index.js";
-import { CippTablePage } from "/src/components/CippComponents/CippTablePage.jsx";
+import { Layout as DashboardLayout } from "../../../../layouts/index.js";
+import { CippTablePage } from "../../../../components/CippComponents/CippTablePage.jsx";
 import { Book, LaptopChromebook } from "@mui/icons-material";
 import { GlobeAltIcon, TrashIcon, UserIcon, UserGroupIcon } from "@heroicons/react/24/outline";
-import { PermissionButton } from "/src/utils/permissions.js";
-import { CippPolicyDeployDrawer } from "/src/components/CippComponents/CippPolicyDeployDrawer.jsx";
-import { useSettings } from "/src/hooks/use-settings.js";
+import { PermissionButton } from "../../../../utils/permissions.js";
+import { CippPolicyDeployDrawer } from "../../../../components/CippComponents/CippPolicyDeployDrawer.jsx";
+import { useSettings } from "../../../../hooks/use-settings.js";
 
 const assignmentModeOptions = [
   { label: "Replace existing assignments", value: "replace" },
@@ -53,7 +53,42 @@ const Page = () => {
           helperText:
             "Replace will overwrite existing assignments. Append keeps current assignments and adds/overwrites only for the selected groups.",
         },
+        {
+          type: "autoComplete",
+          name: "assignmentFilter",
+          label: "Assignment Filter (Optional)",
+          multiple: false,
+          creatable: false,
+          api: {
+            url: "/api/ListAssignmentFilters",
+            queryKey: `ListAssignmentFilters-${tenant}`,
+            labelField: (filter) => filter.displayName,
+            valueField: "displayName",
+          },
+        },
+        {
+          type: "radio",
+          name: "assignmentFilterType",
+          label: "Assignment Filter Mode",
+          options: assignmentFilterTypeOptions,
+          defaultValue: "include",
+          helperText: "Choose whether to include or exclude devices matching the filter.",
+        },
       ],
+      customDataformatter: (row, action, formData) => {
+        const tenantFilterValue = tenant === "AllTenants" && row?.Tenant ? row.Tenant : tenant;
+        return {
+          tenantFilter: tenantFilterValue,
+          ID: row?.id,
+          type: "deviceCompliancePolicies",
+          AssignTo: "allLicensedUsers",
+          assignmentMode: formData?.assignmentMode || "replace",
+          AssignmentFilterName: formData?.assignmentFilter?.value || null,
+          AssignmentFilterType: formData?.assignmentFilter?.value
+            ? formData?.assignmentFilterType || "include"
+            : null,
+        };
+      },
       confirmText: 'Are you sure you want to assign "[displayName]" to all users?',
       icon: <UserIcon />,
       color: "info",
@@ -77,7 +112,42 @@ const Page = () => {
           helperText:
             "Replace will overwrite existing assignments. Append keeps current assignments and adds/overwrites only for the selected groups.",
         },
+        {
+          type: "autoComplete",
+          name: "assignmentFilter",
+          label: "Assignment Filter (Optional)",
+          multiple: false,
+          creatable: false,
+          api: {
+            url: "/api/ListAssignmentFilters",
+            queryKey: `ListAssignmentFilters-${tenant}`,
+            labelField: (filter) => filter.displayName,
+            valueField: "displayName",
+          },
+        },
+        {
+          type: "radio",
+          name: "assignmentFilterType",
+          label: "Assignment Filter Mode",
+          options: assignmentFilterTypeOptions,
+          defaultValue: "include",
+          helperText: "Choose whether to include or exclude devices matching the filter.",
+        },
       ],
+      customDataformatter: (row, action, formData) => {
+        const tenantFilterValue = tenant === "AllTenants" && row?.Tenant ? row.Tenant : tenant;
+        return {
+          tenantFilter: tenantFilterValue,
+          ID: row?.id,
+          type: "deviceCompliancePolicies",
+          AssignTo: "AllDevices",
+          assignmentMode: formData?.assignmentMode || "replace",
+          AssignmentFilterName: formData?.assignmentFilter?.value || null,
+          AssignmentFilterType: formData?.assignmentFilter?.value
+            ? formData?.assignmentFilterType || "include"
+            : null,
+        };
+      },
       confirmText: 'Are you sure you want to assign "[displayName]" to all devices?',
       icon: <LaptopChromebook />,
       color: "info",
@@ -101,7 +171,42 @@ const Page = () => {
           helperText:
             "Replace will overwrite existing assignments. Append keeps current assignments and adds/overwrites only for the selected groups.",
         },
+        {
+          type: "autoComplete",
+          name: "assignmentFilter",
+          label: "Assignment Filter (Optional)",
+          multiple: false,
+          creatable: false,
+          api: {
+            url: "/api/ListAssignmentFilters",
+            queryKey: `ListAssignmentFilters-${tenant}`,
+            labelField: (filter) => filter.displayName,
+            valueField: "displayName",
+          },
+        },
+        {
+          type: "radio",
+          name: "assignmentFilterType",
+          label: "Assignment Filter Mode",
+          options: assignmentFilterTypeOptions,
+          defaultValue: "include",
+          helperText: "Choose whether to include or exclude devices matching the filter.",
+        },
       ],
+      customDataformatter: (row, action, formData) => {
+        const tenantFilterValue = tenant === "AllTenants" && row?.Tenant ? row.Tenant : tenant;
+        return {
+          tenantFilter: tenantFilterValue,
+          ID: row?.id,
+          type: "deviceCompliancePolicies",
+          AssignTo: "AllDevicesAndUsers",
+          assignmentMode: formData?.assignmentMode || "replace",
+          AssignmentFilterName: formData?.assignmentFilter?.value || null,
+          AssignmentFilterType: formData?.assignmentFilter?.value
+            ? formData?.assignmentFilterType || "include"
+            : null,
+        };
+      },
       confirmText: 'Are you sure you want to assign "[displayName]" to all users and devices?',
       icon: <GlobeAltIcon />,
       color: "info",
