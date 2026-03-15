@@ -3,25 +3,26 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useForm, useWatch } from "react-hook-form";
 import { Grid } from "@mui/system";
-import { useSettings } from "/src/hooks/use-settings";
-import { ApiGetCall } from "/src/api/ApiCall.jsx";
-import Portals from "/src/data/portals";
-import { BulkActionsMenu } from "/src/components/bulk-actions-menu.js";
-import { ExecutiveReportButton } from "/src/components/ExecutiveReportButton.js";
-import { TabbedLayout } from "/src/layouts/TabbedLayout";
-import { Layout as DashboardLayout } from "/src/layouts/index.js";
+import { useSettings } from "../../hooks/use-settings";
+import { ApiGetCall } from "../../api/ApiCall.jsx";
+import Portals from "../../data/portals";
+import { BulkActionsMenu } from "../../components/bulk-actions-menu.js";
+import { ExecutiveReportButton } from "../../components/ExecutiveReportButton.js";
+import { CippUniversalSearchV2 } from "../../components/CippCards/CippUniversalSearchV2.jsx";
+import { TabbedLayout } from "../../layouts/TabbedLayout";
+import { Layout as DashboardLayout } from "../../layouts/index.js";
 import tabOptions from "./tabOptions";
-import { dashboardDemoData } from "/src/data/dashboardv2-demo-data";
-import { SecureScoreCard } from "/src/components/CippComponents/SecureScoreCard";
-import { MFACard } from "/src/components/CippComponents/MFACard";
-import { AuthMethodCard } from "/src/components/CippComponents/AuthMethodCard";
-import { LicenseCard } from "/src/components/CippComponents/LicenseCard";
-import { TenantInfoCard } from "/src/components/CippComponents/TenantInfoCard";
-import { TenantMetricsGrid } from "/src/components/CippComponents/TenantMetricsGrid";
-import { AssessmentCard } from "/src/components/CippComponents/AssessmentCard";
-import { CippApiDialog } from "/src/components/CippComponents/CippApiDialog";
-import { CippAddTestReportDrawer } from "/src/components/CippComponents/CippAddTestReportDrawer";
-import CippFormComponent from "/src/components/CippComponents/CippFormComponent";
+import { dashboardDemoData } from "../../data/dashboardv2-demo-data";
+import { SecureScoreCard } from "../../components/CippComponents/SecureScoreCard";
+import { MFACard } from "../../components/CippComponents/MFACard";
+import { AuthMethodCard } from "../../components/CippComponents/AuthMethodCard";
+import { LicenseCard } from "../../components/CippComponents/LicenseCard";
+import { TenantInfoCard } from "../../components/CippComponents/TenantInfoCard";
+import { TenantMetricsGrid } from "../../components/CippComponents/TenantMetricsGrid";
+import { AssessmentCard } from "../../components/CippComponents/AssessmentCard";
+import { CippApiDialog } from "../../components/CippComponents/CippApiDialog";
+import { CippAddTestReportDrawer } from "../../components/CippComponents/CippAddTestReportDrawer";
+import CippFormComponent from "../../components/CippComponents/CippFormComponent";
 import {
   Devices as DevicesIcon,
   CheckCircle as CheckCircleIcon,
@@ -80,7 +81,7 @@ const Page = () => {
           query: { ...router.query, reportId: reportIdValue.reportId.value },
         },
         undefined,
-        { shallow: true }
+        { shallow: true },
       );
     }
   }, [reportIdValue]);
@@ -171,7 +172,7 @@ const Page = () => {
   useEffect(() => {
     if (currentTenantInfo.isSuccess) {
       const tenantLookup = currentTenantInfo.data?.find(
-        (tenant) => tenant.defaultDomainName === currentTenant
+        (tenant) => tenant.defaultDomainName === currentTenant,
       );
 
       // Get filtered portals based on user preferences
@@ -203,6 +204,13 @@ const Page = () => {
   return (
     <Container maxWidth={false} sx={{ mt: 12, mb: 6 }}>
       <Box sx={{ width: "100%", mx: "auto" }}>
+        {/* Universal Search */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent sx={{ px: 2, py: 1.5, "&:last-child": { pb: 1.5 } }}>
+            <CippUniversalSearchV2 />
+          </CardContent>
+        </Card>
+
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid size={{ xs: 12, md: 5 }}>
             <Card sx={{ height: "100%" }}>
@@ -337,19 +345,40 @@ const Page = () => {
             {/* Left Column */}
             <Grid size={{ xs: 12, lg: 6 }}>
               <Box sx={{ display: "flex", flexDirection: "column", gap: 3, height: "100%" }}>
-                <SecureScoreCard
-                  data={testsApi.data?.SecureScore}
-                  isLoading={testsApi.isFetching}
-                />
-                <AuthMethodCard data={testsApi.data?.MFAState} isLoading={testsApi.isFetching} />
+                <Box sx={{ height: 450 }}>
+                  <SecureScoreCard
+                    data={testsApi.data?.SecureScore}
+                    isLoading={testsApi.isFetching}
+                    sx={{ height: "100%" }}
+                  />
+                </Box>
+                <Box sx={{ height: 450 }}>
+                  <AuthMethodCard
+                    data={testsApi.data?.MFAState}
+                    isLoading={testsApi.isFetching}
+                    sx={{ height: "100%" }}
+                  />
+                </Box>
               </Box>
             </Grid>
 
             {/* Right Column */}
             <Grid size={{ xs: 12, lg: 6 }}>
               <Box sx={{ display: "flex", flexDirection: "column", gap: 3, height: "100%" }}>
-                <MFACard data={testsApi.data?.MFAState} isLoading={testsApi.isFetching} />
-                <LicenseCard data={testsApi.data?.LicenseData} isLoading={testsApi.isFetching} />
+                <Box sx={{ height: 450 }}>
+                  <MFACard
+                    data={testsApi.data?.MFAState}
+                    isLoading={testsApi.isFetching}
+                    sx={{ height: "100%" }}
+                  />
+                </Box>
+                <Box sx={{ height: 450 }}>
+                  <LicenseCard
+                    data={testsApi.data?.LicenseData}
+                    isLoading={testsApi.isFetching}
+                    sx={{ height: "100%" }}
+                  />
+                </Box>
               </Box>
             </Grid>
           </Grid>
