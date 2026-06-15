@@ -1,6 +1,6 @@
 import { Box, Button, Container } from "@mui/material";
 import { Grid, Stack } from "@mui/system";
-import { Layout as DashboardLayout } from "/src/layouts/index.js";
+import { Layout as DashboardLayout } from "../../../../layouts/index.js";
 import { useForm, useWatch } from "react-hook-form";
 import CippButtonCard from "../../../../components/CippCards/CippButtonCard";
 import { Add, Delete, Search } from "@mui/icons-material";
@@ -102,9 +102,9 @@ const Page = () => {
                     name="ipAddress"
                     type="textField"
                     validators={{
-                      validate: (value) => getCippValidator(value, "ip"),
+                      validate: (value) => getCippValidator(value, "ipAny"),
                     }}
-                    placeholder="Enter IP Address"
+                    placeholder="Enter IP Address (IPv4 or IPv6)"
                     required
                   />
                 </Grid>
