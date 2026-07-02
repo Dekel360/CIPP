@@ -1,5 +1,5 @@
-import { Layout as DashboardLayout } from "/src/layouts/index.js";
-import { CippTablePage } from "/src/components/CippComponents/CippTablePage.jsx";
+import { Layout as DashboardLayout } from "../../../../layouts/index.js";
+import { CippTablePage } from "../../../../components/CippComponents/CippTablePage.jsx";
 import {
   Block,
   Check,
@@ -14,7 +14,7 @@ import CippJsonView from "../../../../components/CippFormPages/CippJSONView";
 import { CippCADeployDrawer } from "../../../../components/CippComponents/CippCADeployDrawer";
 import { CippApiLogsDrawer } from "../../../../components/CippComponents/CippApiLogsDrawer";
 import { PermissionButton } from "../../../../utils/permissions";
-import { useSettings } from "/src/hooks/use-settings.js";
+import { useSettings } from "../../../../hooks/use-settings.js";
 
 // Page Component
 const Page = () => {
@@ -25,6 +25,13 @@ const Page = () => {
 
   // Actions configuration
   const actions = [
+    {
+      label: "Edit Policy",
+      link: "/tenant/conditional/list-policies/edit?id=[id]",
+      icon: <Edit />,
+      color: "info",
+      hideBulk: true,
+    },
     {
       label: "Create template based on policy",
       type: "POST",

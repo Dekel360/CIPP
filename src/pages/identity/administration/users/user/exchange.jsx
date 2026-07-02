@@ -1,8 +1,8 @@
-import { Layout as DashboardLayout } from "/src/layouts/index.js";
-import { useSettings } from "/src/hooks/use-settings";
+import { Layout as DashboardLayout } from "../../../../../layouts/index.js";
+import { useSettings } from "../../../../../hooks/use-settings";
 import { useRouter } from "next/router";
-import { ApiGetCall } from "/src/api/ApiCall";
-import CippFormSkeleton from "/src/components/CippFormPages/CippFormSkeleton";
+import { ApiGetCall } from "../../../../../api/ApiCall";
+import CippFormSkeleton from "../../../../../components/CippFormPages/CippFormSkeleton";
 import CalendarIcon from "@heroicons/react/24/outline/CalendarIcon";
 import {
   Check,
@@ -69,6 +69,15 @@ const Page = () => {
   const userRequest = ApiGetCall({
     url: `/api/ListUserMailboxDetails?UserId=${userId}&tenantFilter=${userSettingsDefaults.currentTenant}&userMail=${graphUserRequest.data?.[0]?.userPrincipalName}`,
     queryKey: `Mailbox-${userId}`,
+    waiting: waiting && !!graphUserRequest.data?.[0]?.userPrincipalName,
+  });
+
+  const mailboxAccessRequest = ApiGetCall({
+    // Encode the UPN - guest UPNs contain #EXT#, which would truncate the query string
+    url: `/api/ListMailboxPermissions?tenantFilter=${userSettingsDefaults.currentTenant}&UseReportDB=true&ByUser=true&User=${encodeURIComponent(
+      graphUserRequest.data?.[0]?.userPrincipalName ?? "",
+    )}`,
+    queryKey: `MailboxAccess-${userId}`,
     waiting: waiting && !!graphUserRequest.data?.[0]?.userPrincipalName,
   });
 
@@ -163,7 +172,10 @@ const Page = () => {
         // Exact match on display name
         (group.displayName && group.displayName === userIdentifier) ||
         // Partial match - permission identifier starts with group display name (handles timestamps)
-        (group.displayName && userIdentifier.startsWith(group.displayName))
+        (group.displayName &&
+          typeof group.displayName === "string" &&
+          typeof userIdentifier === "string" &&
+          userIdentifier.startsWith(group.displayName))
       );
     });
 
@@ -313,11 +325,11 @@ const Page = () => {
       });
       formControl.setValue(
         "ooo.StartTime",
-        new Date(oooRequest.data?.StartTime).getTime() / 1000 || null
+        new Date(oooRequest.data?.StartTime).getTime() / 1000 || null,
       );
       formControl.setValue(
         "ooo.EndTime",
-        new Date(oooRequest.data?.EndTime).getTime() / 1000 || null
+        new Date(oooRequest.data?.EndTime).getTime() / 1000 || null,
       );
     }
   }, [oooRequest.isSuccess, oooRequest.data]);
@@ -650,6 +662,67 @@ const Page = () => {
     },
   ];
 
+  const mailboxAccessActions = [
+    {
+      label: "Remove Permission",
+      type: "POST",
+      icon: <Delete />,
+      url: "/api/ExecModifyMBPerms",
+      customDataformatter: (row, action, formData) => {
+        const rowArray = Array.isArray(row) ? row : [row];
+        return {
+          mailboxRequests: rowArray.map((r) => ({
+            userID: r.MailboxUPN,
+            permissions: [
+              {
+                UserID: graphUserRequest.data?.[0]?.userPrincipalName,
+                PermissionLevel: r.AccessRights,
+                Modification: "Remove",
+              },
+            ],
+          })),
+          tenantFilter: userSettingsDefaults.currentTenant,
+        };
+      },
+      confirmText: "Are you sure you want to remove this user's access to the selected mailboxes?",
+      multiPost: false,
+      relatedQueryKeys: [`MailboxAccess-${userId}`],
+    },
+  ];
+
+  const mailboxAccessData = mailboxAccessRequest.data?.[0]?.Permissions ?? [];
+
+  const mailboxAccessCard = [
+    {
+      id: 1,
+      cardLabelBox: {
+        cardLabelBoxHeader: mailboxAccessRequest.isFetching ? (
+          <CircularProgress size="25px" color="inherit" />
+        ) : mailboxAccessData.length !== 0 ? (
+          <Check />
+        ) : (
+          <Error />
+        ),
+      },
+      text: "Mailbox Access",
+      subtext: mailboxAccessRequest.isError
+        ? "Could not load the cached permission report - sync the mailbox permissions cache and try again"
+        : mailboxAccessData.length !== 0
+          ? "This user has access to other mailboxes (from the cached permission report)"
+          : "This user has no access to other mailboxes (from the cached permission report)",
+      statusColor: "green.main",
+      table: {
+        title: "Mailbox Access",
+        hideTitle: true,
+        data: mailboxAccessData,
+        refreshFunction: () => mailboxAccessRequest.refetch(),
+        isFetching: mailboxAccessRequest.isFetching,
+        simpleColumns: ["Mailbox", "MailboxUPN", "AccessRights"],
+        actions: mailboxAccessActions,
+      },
+    },
+  ];
+
   // Replace your existing calCard array with this simple version:
   const calCard = [
     {
@@ -944,13 +1017,15 @@ const Page = () => {
       icon: <PlayArrow />,
       url: "/api/ExecSetMailboxRule",
       customDataformatter: (row, action, formData) => {
-        return {
-          ruleId: row?.Identity,
+        const rows = Array.isArray(row) ? row : [row];
+        const result = rows.map((r) => ({
+          ruleId: r?.Identity,
           userPrincipalName: graphUserRequest.data?.[0]?.userPrincipalName,
-          ruleName: row?.Name,
+          ruleName: r?.Name,
           Enable: true,
           tenantFilter: userSettingsDefaults.currentTenant,
-        };
+        }));
+        return Array.isArray(row) ? result : result[0];
       },
       condition: (row) => row && !row.Enabled,
       confirmText: "Are you sure you want to enable this mailbox rule?",
@@ -962,13 +1037,15 @@ const Page = () => {
       icon: <Block />,
       url: "/api/ExecSetMailboxRule",
       customDataformatter: (row, action, formData) => {
-        return {
-          ruleId: row?.Identity,
+        const rows = Array.isArray(row) ? row : [row];
+        const result = rows.map((r) => ({
+          ruleId: r?.Identity,
           userPrincipalName: graphUserRequest.data?.[0]?.userPrincipalName,
-          ruleName: row?.Name,
+          ruleName: r?.Name,
           Disable: true,
           tenantFilter: userSettingsDefaults.currentTenant,
-        };
+        }));
+        return Array.isArray(row) ? result : result[0];
       },
       condition: (row) => row && row.Enabled,
       confirmText: "Are you sure you want to disable this mailbox rule?",
@@ -980,12 +1057,14 @@ const Page = () => {
       icon: <Delete />,
       url: "/api/ExecRemoveMailboxRule",
       customDataformatter: (row, action, formData) => {
-        return {
-          ruleId: row?.Identity,
-          ruleName: row?.Name,
+        const rows = Array.isArray(row) ? row : [row];
+        const result = rows.map((r) => ({
+          ruleId: r?.Identity,
+          ruleName: r?.Name,
           userPrincipalName: graphUserRequest.data?.[0]?.userPrincipalName,
           tenantFilter: userSettingsDefaults.currentTenant,
-        };
+        }));
+        return Array.isArray(row) ? result : result[0];
       },
       confirmText: "Are you sure you want to remove this mailbox rule?",
       multiPost: false,
@@ -1021,7 +1100,7 @@ const Page = () => {
         offCanvas: {
           children: (data) => {
             const keys = Object.keys(data).filter(
-              (key) => !key.includes("@odata") && !key.includes("@data")
+              (key) => !key.includes("@odata") && !key.includes("@data"),
             );
             const properties = [];
             keys.forEach((key) => {
@@ -1235,7 +1314,7 @@ const Page = () => {
         data:
           graphUserRequest.data?.[0]?.proxyAddresses?.map((address) => ({
             Address: address,
-            Type: address?.startsWith("SMTP:") ? "Primary" : "Alias",
+            Type: typeof address === "string" && address.startsWith("SMTP:") ? "Primary" : "Alias",
           })) || [],
         refreshFunction: () => graphUserRequest.refetch(),
         isFetching: graphUserRequest.isFetching,
@@ -1291,7 +1370,7 @@ const Page = () => {
                   <Box display="flex" justifyContent="space-between">
                     <Typography variant="body2">
                       {userRequest?.data?.[0]?.Mailbox?.[0]?.error.includes(
-                        "Microsoft.Exchange.Configuration.Tasks.ManagementObjectNotFoundException"
+                        "Microsoft.Exchange.Configuration.Tasks.ManagementObjectNotFoundException",
                       )
                         ? "This user does not have a mailbox, make sure they are licensed for Exchange."
                         : "An error occurred while fetching the mailbox details."}
@@ -1311,7 +1390,7 @@ const Page = () => {
               </Grid>
             )}
             {!userRequest?.data?.[0]?.Mailbox?.[0]?.error?.includes(
-              "Microsoft.Exchange.Configuration.Tasks.ManagementObjectNotFoundException"
+              "Microsoft.Exchange.Configuration.Tasks.ManagementObjectNotFoundException",
             ) && (
               <>
                 <Grid size={4}>
@@ -1332,6 +1411,11 @@ const Page = () => {
                     <CippBannerListCard
                       isFetching={userRequest.isLoading}
                       items={permissions}
+                      isCollapsible={true}
+                    />
+                    <CippBannerListCard
+                      isFetching={mailboxAccessRequest.isLoading}
+                      items={mailboxAccessCard}
                       isCollapsible={true}
                     />
                     <CippBannerListCard

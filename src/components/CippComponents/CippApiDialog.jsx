@@ -1,4 +1,3 @@
-import { useRouter } from "next/router";
 import {
   Box,
   Button,
@@ -11,10 +10,12 @@ import {
 import { Stack } from "@mui/system";
 import { CippApiResults } from "./CippApiResults";
 import { ApiGetCall, ApiPostCall } from "../../api/ApiCall";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/router";
 import { useForm, useFormState } from "react-hook-form";
 import { useSettings } from "../../hooks/use-settings";
 import CippFormComponent from "./CippFormComponent";
+import { CippFormCondition } from "./CippFormCondition";
 
 export const CippApiDialog = (props) => {
   const {
@@ -31,6 +32,7 @@ export const CippApiDialog = (props) => {
     ...other
   } = props;
   const router = useRouter();
+  const linkOpenedRef = useRef(false);
   const [addedFieldData, setAddedFieldData] = useState({});
   const [partialResults, setPartialResults] = useState([]);
   const [isFormSubmitted, setIsFormSubmitted] = useState(false);
@@ -51,7 +53,7 @@ export const CippApiDialog = (props) => {
   useEffect(() => {
     if (createDialog.open) {
       setIsFormSubmitted(false);
-      formHook.reset(defaultvalues || {});
+      formHook.reset(typeof defaultvalues === "function" ? defaultvalues(row) : defaultvalues || {});
     }
   }, [createDialog.open, defaultvalues]);
 
@@ -83,6 +85,18 @@ export const CippApiDialog = (props) => {
       api?.onSuccess?.(result);
     },
   });
+
+  // Whenever the dialog is (re)opened, discard any results from a previous run
+  // so a freshly created window never shows stale output from an earlier action.
+  // The POST mutation and GET query retain their last result while this component
+  // stays mounted, so clear both alongside the streamed partial results.
+  useEffect(() => {
+    if (createDialog.open) {
+      setPartialResults([]);
+      actionPostRequest.reset();
+      setGetRequestInfo((prev) => ({ ...prev, waiting: false, queryKey: "" }));
+    }
+  }, [createDialog.open]);
 
   const processActionData = (dataObject, row, replacementBehaviour) => {
     if (typeof api?.dataFunction === "function") return api.dataFunction(row, dataObject);
@@ -230,61 +244,87 @@ export const CippApiDialog = (props) => {
   useEffect(() => {
     if (api?.setDefaultValues && createDialog.open) {
       fields.forEach((field) => {
-        const val = row[field.name];
+        const targetName = field.name.replace(/\[(\w+)\]/g, ".$1");
+        const val = targetName
+          .split(".")
+          .reduce((acc, key) => (acc != null ? acc[key] : undefined), row);
         if (
           (typeof val === "string" && field.type === "textField") ||
           (typeof val === "boolean" && field.type === "switch")
         ) {
-          formHook.setValue(field.name, val);
+          formHook.setValue(targetName, val);
         } else if (Array.isArray(val) && field.type === "autoComplete") {
           const values = val
             .map((el) =>
               el?.label && el?.value
                 ? el
                 : typeof el === "string" || typeof el === "number"
-                ? { label: el, value: el }
-                : null
+                  ? { label: el, value: el }
+                  : null,
             )
             .filter(Boolean);
-          formHook.setValue(field.name, values);
+          formHook.setValue(targetName, values);
         } else if (field.type === "autoComplete" && val) {
           formHook.setValue(
-            field.name,
+            targetName,
             typeof val === "string"
               ? { label: val, value: val }
               : val.label && val.value
-              ? val
-              : undefined
+                ? val
+                : undefined,
           );
         }
       });
     }
   }, [createDialog.open, api?.setDefaultValues]);
 
-  const getNestedValue = (obj, path) =>
-    path
+  const escapeHtml = (text) => {
+    if (typeof text !== "string") return text;
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  };
+
+  const getRawNestedValue = (obj, path) => {
+    return path
       .split(".")
       .reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
+  };
 
-  const [linkClicked, setLinkClicked] = useState(false);
-  useEffect(() => setLinkClicked(false), [api.link]);
+  const getNestedValue = (obj, path) => {
+    const value = getRawNestedValue(obj, path);
+    return typeof value === "string" ? escapeHtml(value) : value;
+  };
 
+  // Handle link actions - opens the link when dialog opens, using ref to prevent duplicates
   useEffect(() => {
-    if (api.link && !linkClicked && row && Object.keys(row).length > 0) {
-      const timeoutId = setTimeout(() => {
-        const linkWithData = api.link.replace(
-          /\[([^\]]+)\]/g,
-          (_, key) => getNestedValue(row, key) || `[${key}]`
-        );
-        setLinkClicked(true);
-        if (linkWithData.startsWith("/") && !api?.external)
-          router.push(linkWithData, undefined, { shallow: true });
-        else window.open(linkWithData, api.target || "_blank");
-      }, 0);
-
-      return () => clearTimeout(timeoutId);
+    if (
+      api.link &&
+      createDialog.open &&
+      row &&
+      Object.keys(row).length > 0 &&
+      !linkOpenedRef.current
+    ) {
+      linkOpenedRef.current = true;
+      const linkWithData = api.link.replace(
+        /\[([^\]]+)\]/g,
+        (_, key) => getRawNestedValue(row, key) || `[${key}]`,
+      );
+      if (linkWithData.startsWith("/") && !api?.external) {
+        router.push(linkWithData, undefined, { shallow: true });
+      } else {
+        window.open(linkWithData, api.target || "_blank");
+      }
+      createDialog.handleClose();
     }
-  }, [api.link, linkClicked, row, router]);
+  }, [api.link, createDialog.open, row, router]);
+
+  // Reset the ref when dialog closes so the same link can be opened again
+  useEffect(() => {
+    if (!createDialog.open) {
+      linkOpenedRef.current = false;
+    }
+  }, [createDialog.open]);
 
   useEffect(() => {
     if (api.noConfirm && !api.link) {
@@ -303,14 +343,14 @@ export const CippApiDialog = (props) => {
     if (!Array.isArray(row)) {
       confirmText = api.confirmText.replace(
         /\[([^\]]+)\]/g,
-        (_, key) => getNestedValue(row, key) || `[${key}]`
+        (_, key) => getNestedValue(row, key) || `[${key}]`,
       );
     } else if (row.length > 1) {
-      confirmText = api.confirmText.replace(/\[([^\]]+)\]/g, "the selected rows");
+      confirmText = api.confirmText.replace(/\[([^\]]+)\]/g, `the ${row.length} selected rows`);
     } else if (row.length === 1) {
       confirmText = api.confirmText.replace(
         /\[([^\]]+)\]/g,
-        (_, key) => getNestedValue(row[0], key) || `[${key}]`
+        (_, key) => getNestedValue(row[0], key) || `[${key}]`,
       );
     }
   } else {
@@ -319,10 +359,10 @@ export const CippApiDialog = (props) => {
       if (typeof element === "string") {
         if (Array.isArray(row)) {
           return row.length > 1
-            ? element.replace(/\[([^\]]+)\]/g, "the selected rows")
+            ? element.replace(/\[([^\]]+)\]/g, `the ${row.length} selected rows`)
             : element.replace(
                 /\[([^\]]+)\]/g,
-                (_, key) => getNestedValue(row[0], key) || `[${key}]`
+                (_, key) => getNestedValue(row[0], key) || `[${key}]`,
               );
         }
         return element.replace(/\[([^\]]+)\]/g, (_, key) => getNestedValue(row, key) || `[${key}]`);
@@ -358,16 +398,29 @@ export const CippApiDialog = (props) => {
                   )
                 ) : (
                   <>
-                    {fields?.map((fieldProps, i) => (
-                      <Box key={i} sx={{ width: "100%" }}>
+                    {fields?.map((fieldProps, i) => {
+                      const { condition, ...rest } = fieldProps;
+                      const fieldElement = (
                         <CippFormComponent
                           formControl={formHook}
                           addedFieldData={addedFieldData}
                           setAddedFieldData={setAddedFieldData}
-                          {...fieldProps}
+                          row={row}
+                          {...rest}
                         />
-                      </Box>
-                    ))}
+                      );
+                      return (
+                        <Box key={i} sx={{ width: "100%" }}>
+                          {condition ? (
+                            <CippFormCondition {...condition} formControl={formHook}>
+                              {fieldElement}
+                            </CippFormCondition>
+                          ) : (
+                            fieldElement
+                          )}
+                        </Box>
+                      );
+                    })}
                   </>
                 )}
               </Stack>

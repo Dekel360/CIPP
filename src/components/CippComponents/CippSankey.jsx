@@ -1,7 +1,7 @@
 import { ResponsiveSankey } from "@nivo/sankey";
-import { useSettings } from "/src/hooks/use-settings";
+import { useSettings } from "../../hooks/use-settings";
 
-export const CippSankey = ({ data }) => {
+export const CippSankey = ({ data, onNodeClick, onLinkClick }) => {
   const settings = useSettings();
   const isDark = settings.currentTheme?.value === "dark";
 
@@ -27,7 +27,11 @@ export const CippSankey = ({ data }) => {
   return (
     <div
       className={`h-full w-full ${isDark ? "sankey-dark-mode" : "sankey-light-mode"}`}
-      style={{ height: "100%", width: "100%" }}
+      style={{
+        height: "100%",
+        width: "100%",
+        cursor: onNodeClick || onLinkClick ? "pointer" : "default",
+      }}
     >
       <ResponsiveSankey
         data={data}
@@ -35,6 +39,7 @@ export const CippSankey = ({ data }) => {
         margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
         align="justify"
         colors={(node) => node.nodeColor}
+        label={(node) => node.label ?? node.id}
         nodeOpacity={1}
         nodeHoverOthersOpacity={0.35}
         nodeThickness={18}
@@ -57,6 +62,14 @@ export const CippSankey = ({ data }) => {
         sort="input"
         legends={[]}
         valueFormat={(value) => `${value}`}
+        isInteractive={true}
+        onClick={(node, event) => {
+          if (onNodeClick && node.id) {
+            onNodeClick(node);
+          } else if (onLinkClick && node.source) {
+            onLinkClick(node);
+          }
+        }}
       />
     </div>
   );

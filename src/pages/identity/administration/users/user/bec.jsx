@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Layout as DashboardLayout } from "/src/layouts/index.js";
-import { useSettings } from "/src/hooks/use-settings";
+import { Layout as DashboardLayout } from "../../../../../layouts/index.js";
+import { useSettings } from "../../../../../hooks/use-settings";
 import { useRouter } from "next/router";
-import { ApiGetCall } from "/src/api/ApiCall";
+import { ApiGetCall } from "../../../../../api/ApiCall";
 import CalendarIcon from "@heroicons/react/24/outline/CalendarIcon";
 import { CheckCircle, Download, Mail, Fingerprint, Launch } from "@mui/icons-material";
 import { HeaderedTabbedLayout } from "../../../../../layouts/HeaderedTabbedLayout";
@@ -17,6 +17,7 @@ import { SvgIcon, Typography, CircularProgress, Button } from "@mui/material";
 import { PropertyList } from "../../../../../components/property-list";
 import { PropertyListItem } from "../../../../../components/property-list-item";
 import { CippHead } from "../../../../../components/CippComponents/CippHead";
+import { BECRemediationReportButton } from "../../../../../components/BECRemediationReportButton";
 
 const Page = () => {
   const userSettingsDefaults = useSettings();
@@ -102,7 +103,7 @@ const Page = () => {
     if (becPollingCall.data.NewRules && becPollingCall.data.NewRules.length > 0) {
       // Example condition to check for potential breach
       const hasPotentialBreach = becPollingCall.data.NewRules.some((rule) =>
-        rule.MoveToFolder?.includes("RSS")
+        rule.MoveToFolder?.includes("RSS"),
       );
       if (hasPotentialBreach) {
         return "Potential Breach found. The rules for this user contain classic signs of a breach.";
@@ -125,7 +126,7 @@ const Page = () => {
     if (becPollingCall.data.AddedApps && becPollingCall.data.AddedApps.length > 0) {
       // Example condition to check for potential breach
       const hasPotentialBreach = becPollingCall.data.AddedApps.some(
-        (app) => /* your condition here */ false
+        (app) => /* your condition here */ false,
       );
       if (hasPotentialBreach) {
         return "Potential Breach found.";
@@ -144,6 +145,14 @@ const Page = () => {
       return "Mailbox permission changes have been found.";
     }
     return "No mailbox permission changes found.";
+  };
+
+  const getSentMessagesMessage = () => {
+    if (!becPollingCall.data) return null;
+    if (becPollingCall.data.SentMessages && becPollingCall.data.SentMessages.length > 0) {
+      return "Sent messages have been found. Please review the list below for any suspicious activity.";
+    }
+    return "No sent messages found in the specified time range.";
   };
 
   const subtitle = userRequest.isSuccess
@@ -458,12 +467,56 @@ const Page = () => {
                     )}
                 </CippButtonCard>
 
+                {/* Check 5: Sent Messages */}
                 <CippButtonCard
                   variant="outlined"
                   isFetching={false}
                   title={
                     <Stack direction="row" justifyContent={"space-between"}>
-                      <Box>Check 5: MFA Devices</Box>
+                      <Box>Check 5: Sent Messages</Box>
+                      <Stack direction="row" spacing={2}>
+                        {becPollingCall.data &&
+                        becPollingCall.data.SentMessages &&
+                        becPollingCall.data.SentMessages.length > 0 ? (
+                          <SvgIcon color="success">
+                            <CheckCircle />
+                          </SvgIcon>
+                        ) : (
+                          <SvgIcon color="disabled">
+                            <CheckCircle />
+                          </SvgIcon>
+                        )}
+                      </Stack>
+                    </Stack>
+                  }
+                >
+                  <Typography variant="body2" gutterBottom>
+                    {getSentMessagesMessage()}
+                  </Typography>
+                  {/* Display sent messages */}
+                  {becPollingCall.data &&
+                    becPollingCall.data.SentMessages &&
+                    becPollingCall.data.SentMessages.length > 0 && (
+                      <Box mt={2}>
+                        <PropertyList>
+                          {becPollingCall.data.SentMessages.map((message, index) => (
+                            <PropertyListItem
+                              key={index}
+                              label={`${message?.Subject} to ${message?.RecipientAddress}`}
+                              value={`Status: ${message?.Status} | Sent: ${message?.Received} | From IP: ${message?.FromIP}`}
+                            />
+                          ))}
+                        </PropertyList>
+                      </Box>
+                    )}
+                </CippButtonCard>
+
+                <CippButtonCard
+                  variant="outlined"
+                  isFetching={false}
+                  title={
+                    <Stack direction="row" justifyContent={"space-between"}>
+                      <Box>Check 6: MFA Devices</Box>
                       <Stack direction="row" spacing={2}>
                         {becPollingCall.data &&
                         becPollingCall.data.MFADevices &&
@@ -507,7 +560,7 @@ const Page = () => {
                   isFetching={false}
                   title={
                     <Stack direction="row" justifyContent={"space-between"}>
-                      <Box>Check 6: Password Changes</Box>
+                      <Box>Check 7: Password Changes</Box>
                       <Stack direction="row" spacing={2}>
                         {becPollingCall.data &&
                         becPollingCall.data.ChangedPasswords &&
@@ -545,7 +598,7 @@ const Page = () => {
                     )}
                 </CippButtonCard>
 
-                {/* Check 6: Report Data */}
+                {/* Check 8: Report Data */}
                 <CippButtonCard
                   variant="outlined"
                   isFetching={false}
@@ -567,33 +620,41 @@ const Page = () => {
                   }
                 >
                   <Typography variant="body2" gutterBottom>
-                    Click this button to download a report of all the data found during this
-                    research to perform your own analysis.
+                    Generate a comprehensive PDF report for documentation, compliance, or end-user
+                    review. The report includes detailed explanations suitable for non-technical
+                    users, managers, and compliance requirements (ISO/CMMC/SOC).
                   </Typography>
                   {/* Implement download functionality */}
                   {becPollingCall.data && (
                     <Box sx={{ mt: 2 }}>
-                      <Button
-                        onClick={() => {
-                          const blob = new Blob([JSON.stringify(becPollingCall.data, null, 2)], {
-                            type: "application/json",
-                          });
-                          const url = URL.createObjectURL(blob);
-                          const link = document.createElement("a");
-                          link.href = url;
-                          link.download = `BEC_Report_${userRequest.data[0].userPrincipalName}.json`;
-                          link.click();
-                          URL.revokeObjectURL(url);
-                        }}
-                        variant="contained"
-                        startIcon={
-                          <SvgIcon fontSize="small">
-                            <Download />
-                          </SvgIcon>
-                        }
-                      >
-                        Download Report
-                      </Button>
+                      <Stack direction="row" spacing={2}>
+                        <BECRemediationReportButton
+                          userData={userRequest.data[0]}
+                          becData={becPollingCall.data}
+                          tenantName={userSettingsDefaults.currentTenant}
+                        />
+                        <Button
+                          onClick={() => {
+                            const blob = new Blob([JSON.stringify(becPollingCall.data, null, 2)], {
+                              type: "application/json",
+                            });
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement("a");
+                            link.href = url;
+                            link.download = `BEC_Report_${userRequest.data[0].userPrincipalName}.json`;
+                            link.click();
+                            URL.revokeObjectURL(url);
+                          }}
+                          variant="outlined"
+                          startIcon={
+                            <SvgIcon fontSize="small">
+                              <Download />
+                            </SvgIcon>
+                          }
+                        >
+                          Download JSON
+                        </Button>
+                      </Stack>
                     </Box>
                   )}
                 </CippButtonCard>

@@ -15,8 +15,8 @@ import {
 
 import { Grid } from "@mui/system";
 import { ApiGetCall, ApiGetCallWithPagination, ApiPostCall } from "../../api/ApiCall";
-import { CippOffCanvas } from "/src/components/CippComponents/CippOffCanvas";
-import { CippFormTenantSelector } from "/src/components/CippComponents/CippFormTenantSelector";
+import { CippOffCanvas } from "../CippComponents/CippOffCanvas";
+import { CippFormTenantSelector } from "../CippComponents/CippFormTenantSelector";
 import { Save, WarningOutlined } from "@mui/icons-material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CippFormComponent from "../CippComponents/CippFormComponent";
@@ -41,6 +41,13 @@ export const CippRoleAddEdit = ({ selectedRole }) => {
 
   const formControl = useForm({
     mode: "onChange",
+    defaultValues: {
+      allowedTenants: [],
+      blockedTenants: [],
+      BlockedEndpoints: [],
+      IPRange: [],
+      Permissions: {},
+    },
   });
 
   const formState = useFormState({ control: formControl.control });
@@ -101,6 +108,24 @@ export const CippRoleAddEdit = ({ selectedRole }) => {
   const matchPattern = (pattern, value) => {
     const regex = new RegExp(`^${pattern.replace("*", ".*")}$`);
     return regex.test(value);
+  };
+
+  const getFunctionDescriptionText = (description) => {
+    if (!description) return null;
+
+    if (Array.isArray(description)) {
+      return description?.[0]?.Text || description?.[0]?.text || null;
+    }
+
+    if (typeof description === "string") {
+      return description;
+    }
+
+    if (typeof description === "object") {
+      return description?.Text || description?.text || null;
+    }
+
+    return null;
   };
 
   const getBaseRolePermissions = (role) => {
@@ -434,7 +459,7 @@ export const CippRoleAddEdit = ({ selectedRole }) => {
                 const apiFunction = apiPermissions[cat][obj][type][api];
                 items.push({
                   name: apiFunction.Name,
-                  description: apiFunction.Description?.[0]?.Text || null,
+                  description: getFunctionDescriptionText(apiFunction.Description),
                 });
               }
               return (
@@ -593,7 +618,9 @@ export const CippRoleAddEdit = ({ selectedRole }) => {
                                     Object.keys(apiPermissions[cat][obj][type]).forEach(
                                       (apiKey) => {
                                         const apiFunction = apiPermissions[cat][obj][type][apiKey];
-                                        const descriptionText = apiFunction.Description?.[0]?.Text;
+                                        const descriptionText = getFunctionDescriptionText(
+                                          apiFunction.Description
+                                        );
                                         allEndpoints.push({
                                           label: descriptionText
                                             ? `${apiFunction.Name} - ${descriptionText}`
