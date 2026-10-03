@@ -1,8 +1,11 @@
 import { Box, Card, CardHeader, CardContent, Typography, Skeleton } from "@mui/material";
-import { People as UsersIcon } from "@mui/icons-material";
+import { CippIcons } from "../../utils/icon-registry";
 import { CippSankey } from "./CippSankey";
+import { useRouter } from "next/router";
 
 export const AuthMethodCard = ({ data, isLoading }) => {
+  const router = useRouter();
+
   const processData = () => {
     if (!data || !Array.isArray(data) || data.length === 0) {
       return null;
@@ -13,8 +16,23 @@ export const AuthMethodCard = ({ data, isLoading }) => {
       return null;
     }
 
-    const phishableMethods = ["mobilePhone", "email", "microsoftAuthenticatorPush"];
-    const phishResistantMethods = ["fido2", "windowsHelloForBusiness", "x509Certificate"];
+    const phishableMethods = [
+      "mobilePhone",
+      "alternateMobilePhone",
+      "officePhone",
+      "email",
+      "microsoftAuthenticatorPush",
+      "softwareOneTimePasscode",
+      "hardwareOneTimePasscode",
+    ];
+    const passkeyMethods = [
+      "fido2SecurityKey",
+      "passKeyDeviceBound",
+      "passKeyDeviceBoundAuthenticator",
+      "passKeyDeviceBoundWindowsHello",
+      "x509Certificate",
+    ];
+    const phishResistantMethods = [...passkeyMethods, "windowsHelloForBusiness"];
 
     let singleFactor = 0;
     let phishableCount = 0;
@@ -26,7 +44,7 @@ export const AuthMethodCard = ({ data, isLoading }) => {
     let whfbCount = 0;
 
     enabledUsers.forEach((user) => {
-      const methods = Array.isArray(user.MFAMethods) ? user.MFAMethods : [];
+      const methods = Array.isArray(user.MFAMethods) ? user.MFAMethods : user.MFAMethods ? [user.MFAMethods] : [];
       const perUser = user.PerUser === "enforced" || user.PerUser === "enabled";
       const hasRegistered = user.MFARegistration === true;
 
@@ -45,7 +63,7 @@ export const AuthMethodCard = ({ data, isLoading }) => {
 
       if (hasPhishResistant) {
         phishResistantCount++;
-        if (methods.includes("fido2") || methods.includes("x509Certificate")) {
+        if (methods.some((m) => passkeyMethods.includes(m))) {
           passkeyCount++;
         }
         if (methods.includes("windowsHelloForBusiness")) {
@@ -53,12 +71,18 @@ export const AuthMethodCard = ({ data, isLoading }) => {
         }
       } else if (hasPhishable) {
         phishableCount++;
-        if (methods.includes("mobilePhone") || methods.includes("email")) {
+        if (
+          methods.includes("mobilePhone") ||
+          methods.includes("alternateMobilePhone") ||
+          methods.includes("officePhone") ||
+          methods.includes("email")
+        ) {
           phoneCount++;
         }
         if (
           methods.includes("microsoftAuthenticatorPush") ||
-          methods.includes("softwareOneTimePasscode")
+          methods.includes("softwareOneTimePasscode") ||
+          methods.includes("hardwareOneTimePasscode")
         ) {
           authenticatorCount++;
         }
@@ -110,23 +134,116 @@ export const AuthMethodCard = ({ data, isLoading }) => {
 
   const processedData = processData();
 
+  const handleNodeClick = (node) => {
+    let filters = [];
+
+    switch (node.id) {
+      case "Users":
+        filters = [{ id: "AccountEnabled", value: "Yes" }];
+        break;
+      case "Single factor":
+        filters = [
+          { id: "AccountEnabled", value: "Yes" },
+          { id: "MFARegistration", value: "No" },
+        ];
+        break;
+      case "Multi factor":
+        // Per-user MFA enabled/enforced
+        filters = [{ id: "AccountEnabled", value: "Yes" }];
+        break;
+      case "Phishable":
+        filters = [
+          { id: "AccountEnabled", value: "Yes" },
+          { id: "MFARegistration", value: "Yes" },
+        ];
+        break;
+      case "Phish resistant":
+        filters = [
+          { id: "AccountEnabled", value: "Yes" },
+          { id: "MFARegistration", value: "Yes" },
+        ];
+        break;
+      default:
+        return;
+    }
+
+    router.push({
+      pathname: "/identity/reports/mfa-report",
+      query: { filters: JSON.stringify(filters) },
+    });
+  };
+
+  const handleLinkClick = (link) => {
+    let filters = [];
+
+    if (link.source.id === "Users" && link.target.id === "Single factor") {
+      filters = [
+        { id: "AccountEnabled", value: "Yes" },
+        { id: "MFARegistration", value: "No" },
+      ];
+    } else if (link.source.id === "Users" && link.target.id === "Multi factor") {
+      filters = [{ id: "AccountEnabled", value: "Yes" }];
+    } else if (link.source.id === "Users" && link.target.id === "Phishable") {
+      filters = [
+        { id: "AccountEnabled", value: "Yes" },
+        { id: "MFARegistration", value: "Yes" },
+      ];
+    } else if (link.source.id === "Users" && link.target.id === "Phish resistant") {
+      filters = [
+        { id: "AccountEnabled", value: "Yes" },
+        { id: "MFARegistration", value: "Yes" },
+      ];
+    } else if (link.source.id === "Phishable") {
+      filters = [
+        { id: "AccountEnabled", value: "Yes" },
+        { id: "MFARegistration", value: "Yes" },
+      ];
+    } else if (link.source.id === "Phish resistant") {
+      filters = [
+        { id: "AccountEnabled", value: "Yes" },
+        { id: "MFARegistration", value: "Yes" },
+      ];
+    }
+
+    if (filters.length > 0) {
+      router.push({
+        pathname: "/identity/reports/mfa-report",
+        query: { filters: JSON.stringify(filters) },
+      });
+    }
+  };
+
   return (
-    <Card sx={{ flex: 1 }}>
+    <Card sx={{ flex: 1, height: "100%" }}>
       <CardHeader
         title={
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <UsersIcon sx={{ fontSize: 24 }} />
+          <Box
+            onClick={() => router.push("/identity/reports/mfa-report")}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              cursor: "pointer",
+              width: "fit-content",
+              "&:hover": { textDecoration: "underline" },
+            }}
+          >
+            <CippIcons.People sx={{ fontSize: 24 }} />
             <Typography variant="h6">All users auth methods</Typography>
           </Box>
         }
         sx={{ pb: 1 }}
       />
       <CardContent sx={{ pb: 0 }}>
-        <Box sx={{ height: 300 }}>
+        <Box sx={{ height: { xs: 360, md: 300 } }}>
           {isLoading ? (
             <Skeleton variant="rectangular" width="100%" height={300} />
           ) : processedData ? (
-            <CippSankey data={{ nodes: processedData.nodes, links: processedData.links }} />
+            <CippSankey
+              data={{ nodes: processedData.nodes, links: processedData.links }}
+              onNodeClick={handleNodeClick}
+              onLinkClick={handleLinkClick}
+            />
           ) : (
             <Box
               sx={{
@@ -134,9 +251,12 @@ export const AuthMethodCard = ({ data, isLoading }) => {
                 alignItems: "center",
                 justifyContent: "center",
                 height: "100%",
+                width: "100%",
               }}
             >
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 No authentication method data available
               </Typography>
             </Box>
@@ -145,7 +265,9 @@ export const AuthMethodCard = ({ data, isLoading }) => {
       </CardContent>
       {!isLoading && processedData?.description && (
         <CardContent sx={{ pt: 2 }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {processedData.description}
           </Typography>
         </CardContent>
